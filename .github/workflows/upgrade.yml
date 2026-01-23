@@ -1,0 +1,47 @@
+name: Autoupdate
+
+on:
+  schedule:
+    - cron: 0 0 * * *
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run CI/CD Pipeline
+        uses: zource-dev/action@v1
+        with:
+          node_version: '24.x'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          autoupdate: minor
+          username: Ivan Zakharchanka
+          email: 3axap4eHko@github.com
+          npm_token: ${{ secrets.NPM_TOKEN }}
+          codecov_token: ${{ secrets.CODECOV_TOKEN }}
+          test: |
+            pnpm check
+            pnpm lint
+            pnpm test
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js 🛠️
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Install pnpm 📦
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+          version: 10
+
+      - name: Test published 🔩
+        run: |
+          pnpm init
+          pnpm add nalloc
+        shell: bash
+

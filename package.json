@@ -1,0 +1,94 @@
+{
+  "name": "nalloc",
+  "description": "Rust-like Option and Result for TypeScript with near-zero allocations for extreme performance",
+  "version": "0.0.0",
+  "type": "module",
+  "types": "build/index.d.ts",
+  "main": "build/index.cjs",
+  "module": "build/index.js",
+  "exports": {
+    ".": {
+      "require": "./build/index.cjs",
+      "import": "./build/index.js"
+    },
+    "./types": {
+      "require": "./build/types.cjs",
+      "import": "./build/types.js"
+    },
+    "./option": {
+      "require": "./build/option.cjs",
+      "import": "./build/option.js"
+    },
+    "./result": {
+      "require": "./build/result.cjs",
+      "import": "./build/result.js"
+    },
+    "./safe": {
+      "require": "./build/safe.cjs",
+      "import": "./build/safe.js"
+    },
+    "./unsafe": {
+      "require": "./build/unsafe.cjs",
+      "import": "./build/unsafe.js"
+    },
+    "./testing": {
+      "require": "./build/testing.cjs",
+      "import": "./build/testing.js"
+    },
+    "./devtools": {
+      "require": "./build/devtools.cjs",
+      "import": "./build/devtools.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "build",
+    "src"
+  ],
+  "scripts": {
+    "check": "tsc src/__tests__/option.types.ts src/__tests__/result.types.ts --noEmit --lib esnext,dom --target esnext --module nodenext --moduleResolution nodenext",
+    "build": "rm -rf build && inop src build -i __tests__ -i *.tmp.ts && tsc --declaration --emitDeclarationOnly",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "bench": "overtake benchmarks/*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/3axap4eHko/nalloc.git"
+  },
+  "keywords": [
+    "option",
+    "result",
+    "maybe",
+    "either",
+    "rust",
+    "typescript",
+    "type-safe",
+    "monad",
+    "functional",
+    "error-handling",
+    "pattern-matching",
+    "zero-allocation",
+    "performance"
+  ],
+  "author": "Ivan Zakharchanka",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/3axap4eHko/nalloc/issues"
+  },
+  "homepage": "https://github.com/3axap4eHko/nalloc#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@vitest/coverage-v8": "^4.0.16",
+    "eslint": "^9.39.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "inop": "^0.8.10",
+    "prettier": "^3.7.4",
+    "tsafe": "^1.8.12",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.52.0",
+    "vitest": "^4.0.16"
+  },
+  "packageManager": "pnpm@10.28.1+sha512.7d7dbbca9e99447b7c3bf7a73286afaaf6be99251eb9498baefa7d406892f67b879adb3a1d7e687fc4ccc1a388c7175fbaae567a26ab44d1067b54fcb0d6a316"
+}

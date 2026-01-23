@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ESNext",
+    "module": "NodeNext",
+    "declaration": true,
+    "esModuleInterop": true,
+    "allowJs": true,
+    "moduleResolution": "NodeNext",
+    "lib": ["ESNext", "DOM"],
+    "rootDir": "src",
+    "outDir": "build"
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "**/__tests__",
+    "node_modules",
+    "**/*.tmp.ts"
+  ]
+}
