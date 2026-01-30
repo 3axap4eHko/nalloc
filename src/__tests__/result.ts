@@ -44,7 +44,14 @@ import {
   assertErr,
   all,
   any,
-  partitionAsync
+  partitionAsync,
+  tryCatchMaybePromise,
+  settleMaybePromise,
+  partitionMaybePromise,
+  filterOk,
+  filterErr,
+  safeTry,
+  safeTryAsync
 } from '../result.js';
 import { ok, err, isOk, isErr, optionOf as optOf, none } from '../types.js';
 import { formatResult, inspectResult } from '../devtools.js';
@@ -249,8 +256,11 @@ describe('Result', () => {
       expect(unwrap(ok(42))).toBe(42);
     });
 
-    it('throws for Err', () => {
-      expect(() => unwrap(err('error'))).toThrow('Called unwrap on Err: error');
+    it('throws Err for Err', () => {
+      const e = err('error');
+      let caught: unknown;
+      try { unwrap(e); } catch (x) { caught = x; }
+      expect(caught).toBe(e);
     });
   });
 
@@ -704,6 +714,257 @@ describe('Result', () => {
       const [oks, errs] = await partitionAsync(promises);
       expect(oks).toEqual([1, 2]);
       expect(errs).toEqual(['a']);
+    });
+
+    it('partitionAsync handles rejected promises as errors', async () => {
+      const promises = [
+        Promise.resolve(ok(1)),
+        Promise.reject(new Error('rejected')),
+        Promise.resolve(ok(2)),
+      ];
+      const [oks, errs] = await partitionAsync(promises);
+      expect(oks).toEqual([1, 2]);
+      expect(errs).toHaveLength(1);
+      expect((errs[0] as Error).message).toBe('rejected');
+    });
+
+    it('any returns first Ok at start', () => {
+      const outcome = any([ok(1), err('a'), err('b')]);
+      expect(isOk(outcome)).toBe(true);
+      expect(unwrap(outcome)).toBe(1);
+    });
+
+    it('any returns first Ok at end', () => {
+      const outcome = any([err('a'), err('b'), ok(3)]);
+      expect(isOk(outcome)).toBe(true);
+      expect(unwrap(outcome)).toBe(3);
+    });
+
+    it('any returns empty errors for empty array', () => {
+      const outcome = any([]);
+      expect(isErr(outcome)).toBe(true);
+      expect((outcome as any).error).toEqual([]);
+    });
+  });
+
+  describe('tryCatchMaybePromise', () => {
+    it('returns Ok for sync success', () => {
+      const result = tryCatchMaybePromise(() => 42);
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(42);
+    });
+
+    it('returns Err for sync throw', () => {
+      const result = tryCatchMaybePromise(() => {
+        throw new Error('sync error');
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error.message).toBe('sync error');
+    });
+
+    it('returns Ok for async success', async () => {
+      const result = await tryCatchMaybePromise(() => Promise.resolve(42));
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(42);
+    });
+
+    it('returns Err for async rejection', async () => {
+      const result = await tryCatchMaybePromise(() => Promise.reject(new Error('async error')));
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error.message).toBe('async error');
+    });
+
+    it('uses onError mapper for sync throw', () => {
+      const result = tryCatchMaybePromise(
+        () => { throw new Error('fail'); },
+        (e) => `mapped: ${(e as Error).message}`
+      );
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('mapped: fail');
+    });
+
+    it('uses onError mapper for async rejection', async () => {
+      const result = await tryCatchMaybePromise(
+        () => Promise.reject(new Error('fail')),
+        (e) => `mapped: ${(e as Error).message}`
+      );
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('mapped: fail');
+    });
+  });
+
+  describe('settleMaybePromise', () => {
+    it('returns sync array for all sync values', () => {
+      const result = settleMaybePromise([1, 2, 3]);
+      expect(result).not.toBeInstanceOf(Promise);
+      expect(result).toEqual([1, 2, 3]);
+    });
+
+    it('returns Promise for mixed sync/async values', async () => {
+      const result = settleMaybePromise([1, Promise.resolve(2), 3]);
+      expect(result).toBeInstanceOf(Promise);
+      expect(await result).toEqual([1, 2, 3]);
+    });
+
+    it('converts rejected promises to Err', async () => {
+      const result = await settleMaybePromise([1, Promise.reject('fail'), 3]);
+      expect(isOk(result[0])).toBe(true);
+      expect(isErr(result[1])).toBe(true);
+      expect((result[1] as any).error).toBe('fail');
+      expect(isOk(result[2])).toBe(true);
+    });
+
+    it('handles all async values', async () => {
+      const result = await settleMaybePromise([
+        Promise.resolve(1),
+        Promise.resolve(2)
+      ]);
+      expect(result).toEqual([1, 2]);
+    });
+
+    it('returns empty array for empty input', () => {
+      const result = settleMaybePromise([]);
+      expect(result).not.toBeInstanceOf(Promise);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('partitionMaybePromise', () => {
+    it('returns sync partition for all sync values', () => {
+      const result = partitionMaybePromise([ok(1), err('a'), ok(2)]);
+      expect(result).not.toBeInstanceOf(Promise);
+      expect(result).toEqual([[1, 2], ['a']]);
+    });
+
+    it('returns Promise for mixed sync/async values', async () => {
+      const result = partitionMaybePromise([ok(1), Promise.resolve(err('a')), ok(2)]);
+      expect(result).toBeInstanceOf(Promise);
+      expect(await result).toEqual([[1, 2], ['a']]);
+    });
+
+    it('handles all async values', async () => {
+      const result = await partitionMaybePromise([
+        Promise.resolve(ok(1)),
+        Promise.resolve(err('a'))
+      ]);
+      expect(result).toEqual([[1], ['a']]);
+    });
+
+    it('handles rejected promises as errors', async () => {
+      const result = await partitionMaybePromise([
+        ok(1),
+        Promise.reject(new Error('rejected'))
+      ]);
+      expect(result[0]).toEqual([1]);
+      expect(result[1]).toHaveLength(1);
+      expect((result[1][0] as Error).message).toBe('rejected');
+    });
+
+    it('returns empty arrays for empty input', () => {
+      const result = partitionMaybePromise([]);
+      expect(result).not.toBeInstanceOf(Promise);
+      expect(result).toEqual([[], []]);
+    });
+  });
+
+  describe('filterOk', () => {
+    it('extracts Ok values', () => {
+      expect(filterOk([ok(1), err('a'), ok(2)])).toEqual([1, 2]);
+    });
+
+    it('returns empty for all Err', () => {
+      expect(filterOk([err('a'), err('b')])).toEqual([]);
+    });
+
+    it('returns empty for empty input', () => {
+      expect(filterOk([])).toEqual([]);
+    });
+  });
+
+  describe('filterErr', () => {
+    it('extracts Err values', () => {
+      expect(filterErr([ok(1), err('a'), ok(2), err('b')])).toEqual(['a', 'b']);
+    });
+
+    it('returns empty for all Ok', () => {
+      expect(filterErr([ok(1), ok(2)])).toEqual([]);
+    });
+
+    it('returns empty for empty input', () => {
+      expect(filterErr([])).toEqual([]);
+    });
+  });
+
+  describe('safeTry', () => {
+    it('returns Ok for successful execution', () => {
+      const result = safeTry(() => {
+        const a = unwrap(ok(10));
+        const b = unwrap(ok(5));
+        return a + b;
+      });
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(15);
+    });
+
+    it('returns Err when unwrap throws', () => {
+      const e = err('failed');
+      const result = safeTry(() => {
+        unwrap(e);
+        return 42;
+      });
+      expect(isErr(result)).toBe(true);
+      expect(result).toBe(e);
+    });
+
+    it('catches regular errors', () => {
+      const result = safeTry(() => {
+        throw new Error('boom');
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as { error: Error }).error.message).toBe('boom');
+    });
+
+    it('propagates Err through chain', () => {
+      const parse = (s: string) => s === 'bad' ? err('parse error') : ok(Number(s));
+      const result = safeTry(() => {
+        const a = unwrap(parse('10'));
+        const b = unwrap(parse('bad'));
+        const c = unwrap(parse('5'));
+        return a + b + c;
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as { error: string }).error).toBe('parse error');
+    });
+  });
+
+  describe('safeTryAsync', () => {
+    it('returns Ok for successful async execution', async () => {
+      const result = await safeTryAsync(async () => {
+        const a = unwrap(ok(10));
+        const b = unwrap(await Promise.resolve(ok(5)));
+        return a + b;
+      });
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(15);
+    });
+
+    it('returns Err when unwrap throws in async', async () => {
+      const e = err('async failed');
+      const result = await safeTryAsync(async () => {
+        unwrap(e);
+        return 42;
+      });
+      expect(isErr(result)).toBe(true);
+      expect(result).toBe(e);
+    });
+
+    it('catches rejected promises', async () => {
+      const result = await safeTryAsync(async () => {
+        await Promise.reject(new Error('rejected'));
+        return 42;
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as { error: Error }).error.message).toBe('rejected');
     });
   });
 

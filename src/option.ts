@@ -1,4 +1,4 @@
-import { NONE, isSome, isNone, optionOf as of, err, isOk, isErr } from './types.js';
+import { NONE, EMPTY, isSome, isNone, optionOf as of, err, isOk, isErr } from './types.js';
 import type { Some, None, Option, NoneValueType, ValueType, Result, Ok, Widen } from './types.js';
 
 export type { Some, None, Option };
@@ -97,11 +97,26 @@ export function filterMap<T, U>(values: Iterable<T>, fn: (value: T) => Option<U>
   const collected: U[] = [];
   for (const value of values) {
     const mapped = fn(value);
-    if (isSome(mapped)) {
-      collected.push(mapped);
-    }
+    if (isSome(mapped)) collected.push(mapped);
   }
   return collected;
+}
+
+/**
+ * Finds the first element that maps to Some, returning that value.
+ * @param values - Iterable to search
+ * @param fn - Function that returns Some for matches
+ * @returns The first Some value, or None if no match
+ * @example
+ * findMap([1, 2, 3], n => n > 1 ? some(n * 2) : none) // Some(4)
+ * findMap([1], n => n > 5 ? some(n) : none)           // None
+ */
+export function findMap<T, U>(values: Iterable<T>, fn: (value: T) => Option<U>): Option<U> {
+  for (const value of values) {
+    const mapped = fn(value);
+    if (isSome(mapped)) return mapped;
+  }
+  return NONE;
 }
 
 /**
@@ -146,7 +161,7 @@ export function flatMap<T, U>(opt: Option<T>, fn: (value: T) => Option<U>): Opti
 export function andThen<T, U>(opt: None, fn: (value: T) => Option<U>): None;
 export function andThen<T, U>(opt: Option<T>, fn: (value: T) => Option<U>): Option<U>;
 export function andThen<T, U>(opt: Option<T>, fn: (value: T) => Option<U>): Option<U> {
-  return flatMap(opt, fn);
+  return isNone(opt) ? NONE : fn(opt);
 }
 
 /**
@@ -165,6 +180,20 @@ export function tap<T>(opt: Option<T>, fn: (value: T) => void): Option<T> {
     fn(opt);
   }
   return opt;
+}
+
+/**
+ * Returns true if None, or if Some and predicate returns true.
+ * @param opt - The Option to check
+ * @param predicate - Test function
+ * @returns true if None or predicate(value) is true
+ * @example
+ * isNoneOr(none, x => x > 2)    // true
+ * isNoneOr(some(4), x => x > 2) // true
+ * isNoneOr(some(1), x => x > 2) // false
+ */
+export function isNoneOr<T>(opt: Option<T>, predicate: (value: T) => boolean): boolean {
+  return isNone(opt) || predicate(opt);
 }
 
 /**
@@ -407,8 +436,8 @@ export function isSomeAnd<T>(opt: Option<T>, predicate: (value: T) => boolean): 
  * toArray(some(42)) // [42]
  * toArray(none)     // []
  */
-export function toArray<T>(opt: Option<T>): T[] {
-  return isSome(opt) ? [opt] : [];
+export function toArray<T>(opt: Option<T>): readonly T[] {
+  return isSome(opt) ? [opt] : EMPTY as readonly T[];
 }
 
 /**

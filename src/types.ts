@@ -31,6 +31,9 @@ export type None = NoneValueType & { readonly [SOME_BRAND]: false };
 /** Constant representing None. Use this instead of null/undefined for clarity. */
 export const NONE = undefined as None;
 
+/** Shared frozen empty array to avoid allocations. */
+export const EMPTY: readonly unknown[] = Object.freeze([]);
+
 /** A value that may or may not be present. Some(T) is the value itself; None is null/undefined. */
 export type Option<T> = Some<ValueType<T>> | None;
 
@@ -125,10 +128,6 @@ function ResultErrorCtor<E>(this: ResultErrorShape<E>, error: E): void {
 /** The error wrapper type used internally. */
 export type ResultError<E> = ResultErrorShape<E>;
 
-function hasErrBrand(value: unknown): value is ResultError<unknown> {
-  return (value as Record<symbol, unknown>)?.[ERR_BRAND] === true;
-}
-
 /** Represents a failed Result containing an error. */
 export type Err<E> = ResultError<E>;
 
@@ -158,8 +157,9 @@ export type InferErr<T> = T extends Err<infer TError> ? Err<TError> : never;
 export function isOk<T>(result: Ok<T>): true;
 export function isOk<E>(result: Err<E>): false;
 export function isOk<T, E>(result: Result<T, E>): result is Ok<T>;
-export function isOk<T, E>(result: Result<T, E>): boolean {
-  return !hasErrBrand(result);
+export function isOk(result: unknown): boolean;
+export function isOk(result: unknown): boolean {
+  return !(result as Record<symbol, unknown>)?.[ERR_BRAND];
 }
 
 /**
@@ -171,10 +171,11 @@ export function isOk<T, E>(result: Result<T, E>): boolean {
  * isErr(42)          // false (Ok value)
  */
 export function isErr<E>(result: Err<E>): true;
-export function isErr(result: Ok<any>): false;
+export function isErr(result: Ok<unknown>): false;
 export function isErr<T, E>(result: Result<T, E>): result is Err<E>;
-export function isErr<T, E>(result: Result<T, E>): boolean {
-  return hasErrBrand(result);
+export function isErr(result: unknown): result is Err<unknown>;
+export function isErr(result: unknown): boolean {
+  return (result as Record<symbol, unknown>)?.[ERR_BRAND] === true;
 }
 
 /**
@@ -198,4 +199,25 @@ export function ok<T>(value: T): Ok<T> {
  */
 export function err<E>(error: E): Err<E> {
   return new (ResultErrorCtor as unknown as new (error: E) => Err<E>)(error);
+}
+
+/** A value that may or may not be a Promise. */
+export type MaybePromise<T> = T | Promise<T> | PromiseLike<T>;
+
+/**
+ * Checks if a value is a thenable (has a .then method).
+ * @param value - The value to check
+ * @returns true if value is a PromiseLike
+ */
+export function isThenable<T>(value: MaybePromise<T>): value is PromiseLike<T> {
+  return typeof (value as PromiseLike<T>)?.then === 'function';
+}
+
+/**
+ * Checks if a value is synchronous (not a thenable).
+ * @param value - The value to check
+ * @returns true if value is not a PromiseLike
+ */
+export function isSync<T>(value: MaybePromise<T>): value is T {
+  return typeof (value as PromiseLike<T>)?.then !== 'function';
 }

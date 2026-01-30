@@ -36,7 +36,9 @@ import {
   unwrapOrReturn,
   assertSome,
   satisfiesOption,
-  filterMap
+  filterMap,
+  isNoneOr,
+  findMap
 } from '../option.js';
 import { formatOption, inspectOption } from '../devtools.js';
 import { ok, err, some, none } from '../types.js';
@@ -605,6 +607,38 @@ describe('Option', () => {
       const items = [of(1), none, of(3)];
       const result = filterMap(items, opt => opt);
       expect(result).toEqual([1, 3]);
+    });
+  });
+
+  describe('isNoneOr', () => {
+    it('returns true for None', () => {
+      expect(isNoneOr(none, () => false)).toBe(true);
+    });
+
+    it('returns true for Some when predicate is true', () => {
+      expect(isNoneOr(some(5), x => x > 2)).toBe(true);
+    });
+
+    it('returns false for Some when predicate is false', () => {
+      expect(isNoneOr(some(1), x => x > 2)).toBe(false);
+    });
+  });
+
+  describe('findMap', () => {
+    it('returns first Some result', () => {
+      const result = findMap([1, 2, 3], n => n > 1 ? some(n * 2) : none);
+      expect(isSome(result)).toBe(true);
+      expect(result).toBe(4);
+    });
+
+    it('returns None when no match', () => {
+      const result = findMap([1, 2, 3], n => n > 5 ? some(n) : none);
+      expect(isNone(result)).toBe(true);
+    });
+
+    it('returns None for empty iterable', () => {
+      const result = findMap([], () => some(1));
+      expect(isNone(result)).toBe(true);
     });
   });
 });

@@ -1,5 +1,5 @@
-import { err as ERR, isOk, isErr, isSome, isNone, NONE, optionOf } from './types.js';
-import type { Ok, Err, Result, Option, Widen, WidenNever } from './types.js';
+import { err as ERR, isOk, isErr, isSome, isNone, NONE, optionOf, isThenable } from './types.js';
+import type { Ok, Err, Result, Option, Widen, WidenNever, MaybePromise } from './types.js';
 
 export type { Ok, Err, Result };
 export { isOk, isErr };
@@ -54,6 +54,34 @@ export async function tryAsync<T, E = unknown>(fn: () => Promise<T>, onError?: (
  */
 export function ofAsync<T, E = unknown>(fn: () => Promise<T>): Promise<Result<T, E>> {
   return tryAsync(fn);
+}
+
+/**
+ * Executes a function that may return sync or async, preserving sync execution when possible.
+ * @param fn - Function that may return T or Promise<T>
+ * @param onError - Optional error transformer
+ * @returns Result<T, E> if sync, Promise<Result<T, E>> if async
+ * @example
+ * tryCatchMaybePromise(() => 42)                    // Ok(42) - sync
+ * tryCatchMaybePromise(() => Promise.resolve(42))   // Promise<Ok(42)> - async
+ * tryCatchMaybePromise(() => { throw 'err' })       // Err('err') - sync
+ */
+export function tryCatchMaybePromise<T, E = unknown>(
+  fn: () => MaybePromise<T>,
+  onError?: (error: unknown) => E
+): Result<T, E> | Promise<Result<T, E>> {
+  try {
+    const result = fn();
+    if (isThenable(result)) {
+      return Promise.resolve(result).then(
+        value => value as Ok<T>,
+        error => ERR(onError ? onError(error) : (error as E))
+      );
+    }
+    return result as Ok<T>;
+  } catch (error) {
+    return ERR(onError ? onError(error) : (error as E));
+  }
 }
 
 /**
@@ -185,7 +213,7 @@ export function flatMap<T, U, E>(result: Result<T, E>, fn: (value: T) => Result<
 export function andThen<T, U, E>(result: Err<E>, fn: (value: T) => Result<U, E>): Err<E>;
 export function andThen<T, U, E>(result: Result<T, E>, fn: (value: T) => Result<U, E>): Result<U, E>;
 export function andThen<T, U, E>(result: Result<T, E>, fn: (value: T) => Result<U, E>): Result<U, E> {
-  return flatMap(result, fn);
+  return isErr(result) ? result : fn(result);
 }
 
 /**
@@ -242,19 +270,22 @@ export function bimap<T, U, E, F>(result: Result<T, E>, okFn: (value: T) => U, e
 }
 
 /**
- * Extracts the Ok value, throws if Err.
+ * Extracts the Ok value, throws Err if not Ok.
+ * Use with safeTry for Rust-like ? operator ergonomics.
  * @param result - The Result to unwrap
  * @returns The contained Ok value
- * @throws Error if result is Err
+ * @throws The Err object itself
  * @example
  * unwrap(ok(42))        // 42
- * unwrap(err('failed')) // throws Error
+ * unwrap(err('failed')) // throws Err
+ * safeTry(() => {
+ *   const a = unwrap(getValue());
+ *   return a + 1;
+ * });
  */
 export function unwrap<T, E>(result: Result<T, E>): T {
-  if (isErr(result)) {
-    throw new Error(`Called unwrap on Err: ${String((result as Err<E>).error)}`);
-  }
-  return result as T;
+  if (isErr(result)) throw result;
+  return result;
 }
 
 /**
@@ -504,6 +535,36 @@ export function partition<T, E>(results: Result<T, E>[]): [T[], E[]] {
 }
 
 /**
+ * Extracts all Ok values from an iterable of Results.
+ * @param results - Iterable of Results
+ * @returns Array of Ok values
+ * @example
+ * filterOk([ok(1), err('a'), ok(2)]) // [1, 2]
+ */
+export function filterOk<T, E>(results: Iterable<Result<T, E>>): T[] {
+  const oks: T[] = [];
+  for (const result of results) {
+    if (isOk(result)) oks.push(result);
+  }
+  return oks;
+}
+
+/**
+ * Extracts all Err values from an iterable of Results.
+ * @param results - Iterable of Results
+ * @returns Array of error values
+ * @example
+ * filterErr([ok(1), err('a'), ok(2)]) // ['a']
+ */
+export function filterErr<T, E>(results: Iterable<Result<T, E>>): E[] {
+  const errs: E[] = [];
+  for (const result of results) {
+    if (isErr(result)) errs.push(result.error);
+  }
+  return errs;
+}
+
+/**
  * Collects an array of Results into a Result of an array. Fails on first Err.
  * @param results - Array of Results
  * @returns Ok(values) if all Ok, first Err otherwise
@@ -515,10 +576,8 @@ export function collect<T, E>(results: Result<T, E>[]): Result<T[], E> {
   const values: T[] = [];
 
   for (const result of results) {
-    if (isErr(result)) {
-      return result as Err<E>;
-    }
-    values.push(result as Ok<T>);
+    if (isErr(result)) return result;
+    values.push(result);
   }
 
   return values as Ok<T[]>;
@@ -542,8 +601,8 @@ export function collectAll<T, E>(results: Result<T, E>[]): Result<T[], E[]> {
  * @param results - Array of Results
  * @returns Ok(values) if all Ok, first Err otherwise
  */
-export function all<T, E>(results: Result<T, E>[]): Result<Widen<T>[], WidenNever<E>> {
-  return collect(results) as Result<Widen<T>[], WidenNever<E>>;
+export function all<T, E>(results: Result<T, E>[]): Result<readonly Widen<T>[], WidenNever<E>> {
+  return collect(results) as Result<readonly Widen<T>[], WidenNever<E>>;
 }
 
 /**
@@ -555,12 +614,11 @@ export function all<T, E>(results: Result<T, E>[]): Result<Widen<T>[], WidenNeve
  * any([err('a'), err('b')])        // Err(['a', 'b'])
  */
 export function any<T, E>(results: Result<T, E>[]): Result<Widen<T>, WidenNever<E>[]> {
-  const len = results.length;
-  const errors = new Array<WidenNever<E>>(len);
-  for (let i = 0; i < len; i++) {
+  const errors: WidenNever<E>[] = [];
+  for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (isOk(result)) return result as Ok<Widen<T>>;
-    errors[i] = (result as Err<WidenNever<E>>).error;
+    errors.push((result as Err<WidenNever<E>>).error);
   }
   return ERR(errors);
 }
@@ -651,6 +709,11 @@ export async function matchAsync<T, E, U>(result: Result<T, E>, onOk: (value: T)
   return isOk(result) ? onOk(result) : onErr(result.error);
 }
 
+export function settledToResult<T, E>(result: PromiseSettledResult<Result<T, E>>): Result<T, E> {
+  if (result.status === 'fulfilled') return result.value;
+  return ERR(result.reason);
+}
+
 /**
  * Partitions an async iterable of Results.
  * @param results - Iterable of Promise Results
@@ -659,18 +722,121 @@ export async function matchAsync<T, E, U>(result: Result<T, E>, onOk: (value: T)
  * await partitionAsync([Promise.resolve(ok(1)), Promise.resolve(err('a'))])
  * // [[1], ['a']]
  */
-export async function partitionAsync<T, E>(results: Iterable<Promise<Result<T, E>>>): Promise<[Widen<T>[], WidenNever<E>[]]> {
-  const oks: Widen<T>[] = [];
-  const errs: WidenNever<E>[] = [];
+export async function partitionAsync<T, E>(promises: Iterable<Promise<Result<T, E>>>): Promise<[Widen<T>[], WidenNever<E>[]]> {
+  const settled = await Promise.allSettled(promises);
+  return partition(settled.map(settledToResult)) as [Widen<T>[], WidenNever<E>[]];
+}
 
-  for (const promise of results) {
-    const result = await promise;
-    if (isOk(result)) {
-      oks.push(result as Ok<Widen<T>>);
+/**
+ * Settles an array of MaybePromise values into Results.
+ * Returns synchronously if all inputs are sync, avoiding Promise overhead.
+ * @param values - Array of values that may or may not be Promises
+ * @returns Array of Results (sync) or Promise of Results (if any async)
+ * @example
+ * settleMaybePromise([1, 2, 3])                    // [Ok(1), Ok(2), Ok(3)] - sync
+ * settleMaybePromise([1, Promise.resolve(2)])     // Promise<[Ok(1), Ok(2)]>
+ * settleMaybePromise([Promise.reject('e')])       // Promise<[Err('e')]>
+ */
+export function settleMaybePromise<T, E = unknown>(
+  values: MaybePromise<T>[]
+): Result<T, E>[] | Promise<Result<T, E>[]> {
+  const len = values.length;
+  const results: Result<T, E>[] = new Array(len);
+  let pendingIndices: number[] | undefined;
+  let pendingPromises: Promise<T>[] | undefined;
+
+  for (let i = 0; i < len; i++) {
+    const v = values[i];
+    if (isThenable(v)) {
+      (pendingIndices ??= []).push(i);
+      (pendingPromises ??= []).push(Promise.resolve(v));
     } else {
-      errs.push((result as Err<WidenNever<E>>).error);
+      results[i] = v as Ok<T>;
     }
   }
 
-  return [oks, errs];
+  if (!pendingPromises) return results;
+
+  return Promise.allSettled(pendingPromises).then(settled => {
+    for (let i = 0; i < settled.length; i++) {
+      const s = settled[i];
+      results[pendingIndices![i]] = s.status === 'fulfilled'
+        ? s.value as Ok<T>
+        : ERR(s.reason as E);
+    }
+    return results;
+  });
 }
+
+/**
+ * Partitions MaybePromise Results into Ok and Err values.
+ * Returns synchronously if all inputs are sync, avoiding Promise overhead.
+ * @param values - Array of MaybePromise Results
+ * @returns [Ok values, Err values] (sync) or Promise of same (if any async)
+ * @example
+ * partitionMaybePromise([ok(1), err('a')])                   // [[1], ['a']] - sync
+ * partitionMaybePromise([ok(1), Promise.resolve(err('a'))]) // Promise<[[1], ['a']]>
+ */
+export function partitionMaybePromise<T, E>(
+  values: MaybePromise<Result<T, E>>[]
+): [Widen<T>[], WidenNever<E>[]] | Promise<[Widen<T>[], WidenNever<E>[]]> {
+  const len = values.length;
+  let hasAsync = false;
+
+  for (let i = 0; i < len; i++) {
+    if (isThenable(values[i])) {
+      hasAsync = true;
+      break;
+    }
+  }
+
+  if (!hasAsync) {
+    return partition(values as Result<T, E>[]) as [Widen<T>[], WidenNever<E>[]];
+  }
+
+  return Promise.allSettled(values.map(v => Promise.resolve(v))).then(settled =>
+    partition(settled.map(settledToResult)) as [Widen<T>[], WidenNever<E>[]]
+  );
+}
+
+/**
+ * Executes a function, catching thrown Err values.
+ * Use with unwrap for Rust-like ? operator ergonomics.
+ * @param fn - Function that may throw Err via unwrap
+ * @returns Ok(return value) or the caught Err
+ * @example
+ * const result = safeTry(() => {
+ *   const a = unwrap(parseNumber('10'));
+ *   const b = unwrap(parseNumber('5'));
+ *   return a + b;
+ * }); // Ok(15) or Err(...)
+ */
+export function safeTry<T>(fn: () => T): Result<T, unknown> {
+  try {
+    return fn() as Ok<T>;
+  } catch (e) {
+    if (isErr(e)) return e;
+    return ERR(e);
+  }
+}
+
+/**
+ * Async version of safeTry.
+ * @param fn - Async function that may throw Err via unwrap
+ * @returns Promise of Ok(return value) or the caught Err
+ * @example
+ * const result = await safeTryAsync(async () => {
+ *   const user = unwrap(await fetchUser(id));
+ *   const posts = unwrap(await fetchPosts(user.id));
+ *   return { user, posts };
+ * });
+ */
+export async function safeTryAsync<T>(fn: () => Promise<T>): Promise<Result<T, unknown>> {
+  try {
+    return await fn() as Ok<T>;
+  } catch (e) {
+    if (isErr(e)) return e;
+    return ERR(e);
+  }
+}
+

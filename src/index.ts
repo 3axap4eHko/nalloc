@@ -1,4 +1,4 @@
-export { some, none, ok, err } from './types.js';
+export { some, none, ok, err, isOk, isErr, isSome, isNone, isThenable, isSync } from './types.js';
 export type {
   Some,
   None,
@@ -13,6 +13,8 @@ export type {
   ResultErrorType,
   IsResult,
   InferErr,
+  MaybePromise,
 } from './types.js';
+export { safeTry, safeTryAsync, unwrap } from './result.js';
 export * as Option from './option.js';
 export * as Result from './result.js';
