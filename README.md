@@ -44,7 +44,7 @@ npm install nalloc
 ## Quick start
 
 ```ts
-import { Option, Result, ok, err, none } from 'nalloc';
+import { Option, Result, ok, err, none, safeTry, unwrap } from 'nalloc';
 
 // Option: the value IS the Option
 const port = Option.fromNullable(process.env.PORT);
@@ -57,6 +57,13 @@ const data = Result.match(
   cfg => cfg,
   error => ({ fallback: true })
 );
+
+// safeTry: Rust-like ? operator
+const result = safeTry(() => {
+  const a = unwrap(parseNumber('10'));
+  const b = unwrap(parseNumber('5'));
+  return a + b;
+}); // Ok(15) or Err(...)
 ```
 
 ## How it works
@@ -105,7 +112,7 @@ Option.map(42, x => x * 2);               // value IS the Option
 The API mirrors Rust's `Option` and `Result`:
 
 ```ts
-import { Option, Result, ok, err, none } from 'nalloc';
+import { Option, Result, ok, err, none, safeTry, unwrap } from 'nalloc';
 
 // Rust: Some(42).map(|x| x * 2)
 Option.map(42, x => x * 2);
@@ -115,6 +122,12 @@ Result.andThen(ok(42), x => x > 0 ? ok(x) : err('negative'));
 
 // Rust: result.unwrap_or(0)
 Result.unwrapOr(result, 0);
+
+// Rust: let value = try!(get_value())  /  let value = get_value()?
+const value = safeTry(() => {
+  const a = unwrap(getValue());
+  return a + 1;
+});
 ```
 
 ## Option
@@ -158,7 +171,7 @@ const maybeUser = await Option.fromPromise(fetchUserById(id));
 A `Result<T, E>` is either `Ok<T>` (the value itself) or `Err<E>` (a wrapper).
 
 ```ts
-import { Result, ok, err } from 'nalloc';
+import { Result, ok, err, safeTry, safeTryAsync, unwrap } from 'nalloc';
 
 // Wrap throwing functions
 const parsed = Result.tryCatch(
@@ -166,11 +179,18 @@ const parsed = Result.tryCatch(
   e => 'invalid json'
 );
 
-// Async operations
-const data = await Result.fromPromise(fetch('/api'));
-const processed = await Result.tryAsync(async () => {
-  const res = await fetch('/api');
-  return res.json();
+// safeTry: Rust-like ? operator for imperative error handling
+const result = safeTry(() => {
+  const config = unwrap(parseConfig(raw));
+  const db = unwrap(connectDb(config.url));
+  return db.query('SELECT 1');
+});
+
+// Async safeTry
+const data = await safeTryAsync(async () => {
+  const res = unwrap(await fetchUser(id));
+  const posts = unwrap(await fetchPosts(res.id));
+  return { user: res, posts };
 });
 
 // Transform
@@ -195,6 +215,34 @@ const first = Result.any([err('a'), ok(42), err('b')]);  // Ok(42)
 const [oks, errs] = Result.partition(results);
 ```
 
+## Iter
+
+Iterator utilities for working with fallible iteration and Result streams.
+
+```ts
+import { Iter } from 'nalloc';
+
+// Safe iteration: wraps throws as Err, values as Ok
+for (const result of Iter.safeIter(riskyIterator)) {
+  if (isOk(result)) handleValue(result);
+  else handleError(result.error);
+}
+
+// mapWhile: yields mapped values while fn returns Some
+const taken = [...Iter.mapWhile([1, 2, 3, 4, 5], n =>
+  n < 4 ? n * 10 : null
+)]; // [10, 20, 30]
+
+// tryCollect: collect Results into Result<T[], E>
+const collected = Iter.tryCollect(results); // Ok([1, 2, 3]) or first Err
+
+// tryFold: fold with early exit on Err
+const sum = Iter.tryFold([1, 2, 3], 0, (acc, n) => ok(acc + n));
+
+// tryForEach: iterate with early exit on Err
+Iter.tryForEach(items, item => processItem(item));
+```
+
 ## API Reference
 
 ### Option
@@ -205,62 +253,100 @@ const [oks, errs] = Result.partition(results);
 | `fromPromise(promise)` | Promise to Option (rejection = None) |
 | `map(opt, fn)` | Transform Some value |
 | `flatMap(opt, fn)` | Chain Option-returning functions |
+| `andThen(opt, fn)` | Alias for flatMap |
+| `tap(opt, fn)` | Side effect on Some, return original |
 | `filter(opt, predicate)` | Keep Some if predicate passes |
 | `match(opt, onSome, onNone)` | Pattern match |
 | `unwrap(opt)` | Extract or throw |
 | `unwrapOr(opt, default)` | Extract or default |
 | `unwrapOrElse(opt, fn)` | Extract or compute default |
+| `unwrapOrReturn(opt, fn)` | Extract or return computed value |
+| `expect(opt, msg)` | Extract or throw with message |
 | `assertSome(opt, msg?)` | Assert and narrow to Some |
 | `isSome(opt)` / `isNone(opt)` | Type guards |
+| `isSomeAnd(opt, pred)` | Some and predicate passes |
+| `isNoneOr(opt, pred)` | None or predicate passes |
+| `or(opt, other)` | Return first Some |
+| `orElse(opt, fn)` | Return Some or compute fallback |
+| `and(opt, other)` | Return second if first is Some |
+| `xor(opt, other)` | Some if exactly one is Some |
+| `zip(opt, other)` | Combine two Options into tuple |
+| `unzip(opt)` | Split tuple Option into two |
+| `flatten(opt)` | Flatten nested Option |
+| `contains(opt, value)` | Check if Some contains value |
+| `mapOr(opt, default, fn)` | Map or return default |
+| `mapOrElse(opt, defaultFn, fn)` | Map or compute default |
+| `toArray(opt)` | Some to [value], None to [] |
+| `toNullable(opt)` | Some to value, None to null |
+| `toUndefined(opt)` | Some to value, None to undefined |
+| `okOr(opt, error)` | Option to Result |
+| `okOrElse(opt, fn)` | Option to Result with computed error |
+| `ofOk(result)` | Ok to Some, Err to None |
+| `ofErr(result)` | Err to Some, Ok to None |
 | `filterMap(items, fn)` | Map and filter in one pass |
+| `findMap(items, fn)` | Find first Some from mapping |
 
 ### Result
 
 | Function | Description |
 |----------|-------------|
 | `tryCatch(fn, onError?)` | Wrap throwing function |
-| `tryAsync(fn, onError?)` | Wrap async function |
-| `fromPromise(promise)` | Promise to Result |
+| `tryCatchMaybePromise(fn, onError?)` | Wrap sync-or-async, preserving sync |
+| `of(fn)` | Alias for tryCatch (no error mapper) |
+| `safeTry(fn)` | Imperative error handling with unwrap |
+| `safeTryAsync(fn)` | Async version of safeTry |
+| `unwrap(result)` | Extract Ok or throw error value |
+| `unwrapErr(result)` | Extract Err or throw |
+| `unwrapOr(result, default)` | Extract Ok or default |
+| `unwrapOrElse(result, fn)` | Extract Ok or compute from error |
+| `unwrapOrReturn(result, fn)` | Extract Ok or return computed value |
+| `expect(result, msg)` | Extract Ok or throw with message |
+| `expectErr(result, msg)` | Extract Err or throw with message |
 | `map(result, fn)` | Transform Ok value |
 | `mapErr(result, fn)` | Transform Err value |
+| `bimap(result, okFn, errFn)` | Transform both Ok and Err |
 | `flatMap(result, fn)` | Chain Result-returning functions |
+| `andThen(result, fn)` | Alias for flatMap |
+| `tap(result, fn)` | Side effect on Ok, return original |
+| `tapErr(result, fn)` | Side effect on Err, return original |
 | `match(result, onOk, onErr)` | Pattern match |
-| `unwrap(result)` | Extract Ok or throw |
-| `unwrapOr(result, default)` | Extract Ok or default |
 | `assertOk(result, msg?)` | Assert and narrow to Ok |
+| `assertErr(result, msg?)` | Assert and narrow to Err |
 | `isOk(result)` / `isErr(result)` | Type guards |
+| `isOkAnd(result, pred)` | Ok and predicate passes |
+| `isErrAnd(result, pred)` | Err and predicate passes |
+| `isSomeErr(result)` | Err with non-null error |
+| `and(result, other)` | Return second if first is Ok |
+| `or(result, other)` | Return first Ok |
+| `orElse(result, fn)` | Ok or compute fallback from error |
+| `zip(a, b)` | Combine two Ok into tuple |
+| `zipWith(a, b, fn)` | Combine two Ok with function |
+| `flatten(result)` | Flatten nested Result |
+| `transpose(result)` | Result<Option> to Option<Result> |
+| `toOption(result)` | Ok to Some, Err to None |
+| `toErrorOption(result)` | Err to Some, Ok to None |
+| `mapOr(result, default, fn)` | Map Ok or return default |
+| `mapOrElse(result, defaultFn, fn)` | Map Ok or compute default |
 | `all(results)` | Collect all Ok or first Err |
 | `any(results)` | First Ok or all Errs |
+| `collect(results)` | Collect Ok values or first Err |
+| `collectAll(results)` | All Ok or all Errs |
 | `partition(results)` | Split into [oks, errs] |
 | `partitionAsync(promises)` | Async partition |
+| `filterOk(results)` | Extract all Ok values |
+| `filterErr(results)` | Extract all Err values |
+| `settleMaybePromise(values)` | Settle sync/async values to Results |
+| `partitionMaybePromise(values)` | Partition sync/async Results |
 
-## Testing
+### Iter
 
-```ts
-import { expectOk, expectErr, expectSome, expectNone, extendExpect } from 'nalloc/testing';
-import { expect } from 'vitest';
-
-extendExpect(expect);
-
-expect(result).toBeOk();
-expect(result).toBeErr();
-expect(option).toBeSome();
-expect(option).toBeNone();
-
-const value = expectOk(result);  // returns value or throws
-```
-
-## Devtools
-
-```ts
-import { formatResult, formatOption, inspectResult, inspectOption } from 'nalloc/devtools';
-
-formatResult(ok(42));    // "Ok(42)"
-formatOption(null);      // "None"
-
-inspectResult(ok(42));   // { status: 'ok', value: 42 }
-inspectOption(42);       // { kind: 'some', value: 42 }
-```
+| Function | Description |
+|----------|-------------|
+| `safeIter(source)` | Wrap iterable: values as Ok, throws as Err |
+| `mapWhile(source, fn)` | Yield mapped values while fn returns Some |
+| `tryCollect(source)` | Collect Results into Result<T[], E> |
+| `tryFold(source, init, fn)` | Fold with early exit on Err |
+| `tryForEach(source, fn)` | Iterate with early exit on Err |
 
 ## Comparison
 

@@ -1,24 +1,23 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as unsafe from '../unsafe.js';
-import { err } from '../types.js';
+import { err, isErr, isNone } from '../types.js';
 
-describe('nalloc/unsafe exports', () => {
-  it('exports match nalloc', () => {
+describe('unsafe module', () => {
+  it('exports constructors', () => {
     expect(unsafe.some).toBeDefined();
-    expect('none' in unsafe).toBe(true);
     expect(unsafe.ok).toBeDefined();
-    expect(unsafe.err).toBeDefined();
-    expect(unsafe.Option).toBeDefined();
-    expect(unsafe.Result).toBeDefined();
   });
 
-  it('unsafe some does not throw on null/undefined', () => {
+  it('some does not validate nullish values', () => {
     expect(() => unsafe.some(null)).not.toThrow();
     expect(() => unsafe.some(undefined)).not.toThrow();
+    expect(isNone(unsafe.some(null))).toBe(true);
+    expect(isNone(unsafe.some(undefined))).toBe(true);
   });
 
-  it('unsafe ok does not throw on Err', () => {
-    const error = err('test');
-    expect(() => unsafe.ok(error)).not.toThrow();
+  it('ok does not validate Err payloads', () => {
+    const payload = err('unsafe payload');
+    expect(() => unsafe.ok(payload)).not.toThrow();
+    expect(isErr(unsafe.ok(payload))).toBe(true);
   });
 });

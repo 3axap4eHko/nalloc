@@ -1,24 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import * as safe from '../safe.js';
-import { err } from '../types.js';
+import { ok, some, err, isSome } from '../types.js';
 
-describe('nalloc/safe exports', () => {
-  it('exports match nalloc', () => {
-    expect(safe.some).toBeDefined();
-    expect('none' in safe).toBe(true);
-    expect(safe.ok).toBeDefined();
-    expect(safe.err).toBeDefined();
-    expect(safe.Option).toBeDefined();
-    expect(safe.Result).toBeDefined();
+describe('safe constructors', () => {
+  it('some validates non-nullable input', () => {
+    expect(isSome(some(42))).toBe(true);
   });
 
-  it('safe some throws on null/undefined', () => {
-    expect(() => safe.some(null as any)).toThrow();
-    expect(() => safe.some(undefined as any)).toThrow();
+  it('some throws on null/undefined', () => {
+    expect(() => some(null as any)).toThrow('some() requires a non-nullable value');
+    expect(() => some(undefined as any)).toThrow('some() requires a non-nullable value');
   });
 
-  it('safe ok throws on Err', () => {
+  it('ok throws on Err', () => {
     const error = err('test');
-    expect(() => safe.ok(error)).toThrow();
+    expect(() => ok(error)).toThrow('ok() cannot wrap an Err value');
   });
 });

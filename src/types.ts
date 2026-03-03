@@ -94,15 +94,23 @@ export function optionOf<T>(value: T): Option<T> {
   return isNone(value as Option<T>) ? NONE : (value as Some<T>);
 }
 
+export function someUnchecked<T>(value: T): Some<ValueType<T>> {
+  return value as Some<ValueType<T>>;
+}
+
 /**
- * Creates a Some value. Does not validate - use safe.some() for validation.
- * @param value - The value to wrap (must be non-null)
+ * Creates a Some value with runtime validation.
+ * @param value - The value to wrap
  * @returns The value typed as Some
+ * @throws TypeError if value is null or undefined
  * @example
  * some(42) // Some(42)
  */
 export function some<T>(value: ValueType<T>): Some<ValueType<T>> {
-  return value as Some<ValueType<T>>;
+  if (value === null || value === undefined) {
+    throw new TypeError('some() requires a non-nullable value');
+  }
+  return someUnchecked(value);
 }
 
 /** Constant representing None. Alias for NONE. */
@@ -178,15 +186,23 @@ export function isErr(result: unknown): boolean {
   return (result as Record<symbol, unknown>)?.[ERR_BRAND] === true;
 }
 
+export function okUnchecked<T>(value: T): Ok<T> {
+  return value as Ok<T>;
+}
+
 /**
- * Creates an Ok value. Does not validate - use safe.ok() for validation.
+ * Creates an Ok value with runtime validation.
  * @param value - The success value
  * @returns The value typed as Ok
+ * @throws TypeError if value is an Err
  * @example
  * ok(42) // Ok(42)
  */
 export function ok<T>(value: T): Ok<T> {
-  return value as Ok<T>;
+  if (isErr(value)) {
+    throw new TypeError('ok() cannot wrap an Err value');
+  }
+  return okUnchecked(value);
 }
 
 /**

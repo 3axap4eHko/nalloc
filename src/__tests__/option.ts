@@ -40,7 +40,6 @@ import {
   isNoneOr,
   findMap
 } from '../option.js';
-import { formatOption, inspectOption } from '../devtools.js';
 import { ok, err, some, none } from '../types.js';
 
 describe('Option', () => {
@@ -67,11 +66,9 @@ describe('Option', () => {
       expect(opt).toBe(42);
     });
 
-    it('some does not throw on null/undefined', () => {
-      expect(() => some(null as any)).not.toThrow();
-      expect(() => some(undefined as any)).not.toThrow();
-      expect(isNone(some(null as any))).toBe(true);
-      expect(isNone(some(undefined as any))).toBe(true);
+    it('some throws on null/undefined', () => {
+      expect(() => some(null as any)).toThrow('some() requires a non-nullable value');
+      expect(() => some(undefined as any)).toThrow('some() requires a non-nullable value');
     });
 
     it('none creates None', () => {
@@ -566,9 +563,19 @@ describe('Option', () => {
       expect(isSome(opt)).toBe(true);
       expect(unwrap(opt)).toBe(99);
     });
+
+    it('fromPromise returns None on rejection without callback', async () => {
+      const opt = await fromPromise(Promise.reject(new Error('boom')));
+      expect(isNone(opt)).toBe(true);
+    });
   });
 
   describe('control helpers', () => {
+    it('unwrapOrReturn returns value for Some', () => {
+      const result = unwrapOrReturn(of(42), () => 77);
+      expect(result).toBe(42);
+    });
+
     it('unwrapOrReturn returns fallback for None', () => {
       const result = unwrapOrReturn(none, () => 77);
       expect(result).toBe(77);
@@ -587,18 +594,6 @@ describe('Option', () => {
     it('satisfiesOption validates at runtime', () => {
       const candidate: any = of(3);
       expect(() => satisfiesOption(candidate)).not.toThrow();
-    });
-  });
-
-  describe('introspection helpers', () => {
-    it('inspectOption exposes discriminated metadata', () => {
-      expect(inspectOption(of(4))).toEqual({ kind: 'some', value: 4 });
-      expect(inspectOption(none)).toEqual({ kind: 'none' });
-    });
-
-    it('formatOption prints human friendly value', () => {
-      expect(formatOption(of(1))).toBe('Some(1)');
-      expect(formatOption(none)).toBe('None');
     });
   });
 

@@ -14,6 +14,8 @@ export { isOk, isErr };
  * tryCatch(() => JSON.parse('invalid'))     // Err(SyntaxError)
  * tryCatch(() => { throw 'oops' }, e => e)  // Err('oops')
  */
+export function tryCatch<T>(fn: () => T): Result<T, unknown>;
+export function tryCatch<T, E>(fn: () => T, onError: (error: unknown) => E): Result<T, E>;
 export function tryCatch<T, E = unknown>(fn: () => T, onError?: (error: unknown) => E): Result<T, E> {
   try {
     return fn() as Ok<T>;
@@ -27,33 +29,8 @@ export function tryCatch<T, E = unknown>(fn: () => T, onError?: (error: unknown)
  * @param fn - Function to execute
  * @returns Ok(result) if successful, Err(error) if thrown
  */
-export function of<T, E = unknown>(fn: () => T): Result<T, E> {
+export function of<T>(fn: () => T): Result<T, unknown> {
   return tryCatch(fn);
-}
-
-/**
- * Executes an async function and captures the result or error.
- * @param fn - Async function to execute
- * @param onError - Optional error transformer
- * @returns Promise of Ok(result) if successful, Err(error) if rejected
- * @example
- * await tryAsync(() => fetch('/api').then(r => r.json())) // Ok(data) or Err(error)
- */
-export async function tryAsync<T, E = unknown>(fn: () => Promise<T>, onError?: (error: unknown) => E): Promise<Result<T, E>> {
-  try {
-    return (await fn()) as Ok<T>;
-  } catch (error) {
-    return ERR(onError ? onError(error) : (error as E));
-  }
-}
-
-/**
- * Alias for tryAsync. Executes an async function and captures the result or error.
- * @param fn - Async function to execute
- * @returns Promise of Ok(result) if successful, Err(error) if rejected
- */
-export function ofAsync<T, E = unknown>(fn: () => Promise<T>): Promise<Result<T, E>> {
-  return tryAsync(fn);
 }
 
 /**
@@ -66,38 +43,20 @@ export function ofAsync<T, E = unknown>(fn: () => Promise<T>): Promise<Result<T,
  * tryCatchMaybePromise(() => Promise.resolve(42))   // Promise<Ok(42)> - async
  * tryCatchMaybePromise(() => { throw 'err' })       // Err('err') - sync
  */
-export function tryCatchMaybePromise<T, E = unknown>(
-  fn: () => MaybePromise<T>,
-  onError?: (error: unknown) => E
-): Result<T, E> | Promise<Result<T, E>> {
+export function tryCatchMaybePromise<T>(fn: () => MaybePromise<T>): Result<T, unknown> | Promise<Result<T, unknown>>;
+export function tryCatchMaybePromise<T, E>(fn: () => MaybePromise<T>, onError: (error: unknown) => E): Result<T, E> | Promise<Result<T, E>>;
+export function tryCatchMaybePromise<T, E = unknown>(fn: () => MaybePromise<T>, onError?: (error: unknown) => E): Result<T, E> | Promise<Result<T, E>> {
   try {
     const result = fn();
     if (isThenable(result)) {
       return Promise.resolve(result).then(
-        value => value as Ok<T>,
-        error => ERR(onError ? onError(error) : (error as E))
+        (value) => value as Ok<T>,
+        (error) => ERR(onError ? onError(error) : (error as E)),
       );
     }
     return result as Ok<T>;
   } catch (error) {
     return ERR(onError ? onError(error) : (error as E));
-  }
-}
-
-/**
- * Converts a Promise to a Result.
- * @param promise - The promise to convert
- * @param onRejected - Optional rejection handler
- * @returns Promise of Ok(value) if resolved, Err(error) if rejected
- * @example
- * await fromPromise(Promise.resolve(42))        // Ok(42)
- * await fromPromise(Promise.reject('error'))    // Err('error')
- */
-export async function fromPromise<T, E = unknown>(promise: Promise<T>, onRejected?: (reason: unknown) => E): Promise<Result<T, E>> {
-  try {
-    return (await promise) as Ok<T>;
-  } catch (error) {
-    return ERR(onRejected ? onRejected(error) : (error as E));
   }
 }
 
@@ -125,7 +84,7 @@ export function unwrapOrReturn<T, E, const R>(result: Result<T, E>, onErr: (erro
  */
 export function assertOk<T, E>(result: Result<T, E>, message?: string): asserts result is Ok<T> {
   if (isErr(result)) {
-    throw new Error(message ?? `Expected Ok result. Received error: ${String((result as Err<E>).error)}`);
+    throw new Error(message ?? `Expected Ok result. Received error: ${String(result.error)}`);
   }
 }
 
@@ -150,7 +109,7 @@ export function assertErr<T, E>(result: Result<T, E>, message?: string): asserts
  * @returns true if Err with Some error value
  */
 export function isSomeErr<T, E>(result: Result<T, E>): boolean {
-  return isErr(result) && isSome((result as Err<E>).error);
+  return isErr(result) && isSome(result.error);
 }
 
 /**
@@ -166,8 +125,8 @@ export function map<T, U, E>(result: Err<E>, fn: (value: T) => U): Err<E>;
 export function map<T, U>(result: Ok<T>, fn: (value: T) => U): Ok<U>;
 export function map<T, U, E>(result: Result<T, E>, fn: (value: T) => U): Result<U, E>;
 export function map<T, U, E>(result: Result<T, E>, fn: (value: T) => U): Result<U, E> {
-  if (isErr(result)) return result as Err<E>;
-  return fn(result as Ok<T>) as Ok<U>;
+  if (isErr(result)) return result;
+  return fn(result) as Ok<U>;
 }
 
 /**
@@ -200,8 +159,8 @@ export function mapErr<T, E, F>(result: Result<T, E>, fn: (error: E) => F): Resu
 export function flatMap<T, U, E>(result: Err<E>, fn: (value: T) => Result<U, E>): Err<E>;
 export function flatMap<T, U, E>(result: Result<T, E>, fn: (value: T) => Result<U, E>): Result<U, E>;
 export function flatMap<T, U, E>(result: Result<T, E>, fn: (value: T) => Result<U, E>): Result<U, E> {
-  if (isErr(result)) return result as Err<E>;
-  return fn(result as Ok<T>);
+  if (isErr(result)) return result;
+  return fn(result);
 }
 
 /**
@@ -247,7 +206,7 @@ export function tapErr<E>(result: Err<E>, fn: (error: E) => void): Err<E>;
 export function tapErr<T, E>(result: Result<T, E>, fn: (error: E) => void): Result<T, E>;
 export function tapErr<T, E>(result: Result<T, E>, fn: (error: E) => void): Result<T, E> {
   if (isErr(result)) {
-    fn((result as Err<E>).error);
+    fn(result.error);
   }
   return result;
 }
@@ -284,7 +243,7 @@ export function bimap<T, U, E, F>(result: Result<T, E>, okFn: (value: T) => U, e
  * });
  */
 export function unwrap<T, E>(result: Result<T, E>): T {
-  if (isErr(result)) throw result;
+  if (isErr(result)) throw result.error;
   return result;
 }
 
@@ -370,9 +329,9 @@ export function mapOrElse<T, E, U>(result: Result<T, E>, defaultFn: () => U, fn:
  */
 export function expect<T, E>(result: Result<T, E>, message: string): T {
   if (isErr(result)) {
-    throw new Error(`${message}: ${String((result as Err<E>).error)}`);
+    throw new Error(`${message}: ${String(result.error)}`);
   }
-  return result as Ok<T>;
+  return result;
 }
 
 /**
@@ -452,7 +411,7 @@ export function toOption<T, E>(result: Result<T, E>): Option<T> {
  * toErrorOption(ok(42))        // None
  */
 export function toErrorOption<T, E>(result: Result<T, E>): Option<E> {
-  return isErr(result) ? optionOf((result as Err<E>).error) : NONE;
+  return isErr(result) ? optionOf(result.error) : NONE;
 }
 
 /**
@@ -465,9 +424,9 @@ export function toErrorOption<T, E>(result: Result<T, E>): Option<E> {
  * zip(ok(1), err('e')) // Err('e')
  */
 export function zip<T, U, E>(left: Result<T, E>, right: Result<U, E>): Result<[T, U], E> {
-  if (isErr(left)) return left as Err<E>;
-  if (isErr(right)) return right as Err<E>;
-  return [left as Ok<T>, right as Ok<U>] as Ok<[T, U]>;
+  if (isErr(left)) return left;
+  if (isErr(right)) return right;
+  return [left, right] as Ok<[T, U]>;
 }
 
 /**
@@ -480,9 +439,9 @@ export function zip<T, U, E>(left: Result<T, E>, right: Result<U, E>): Result<[T
  * zipWith(ok(2), ok(3), (a, b) => a + b) // Ok(5)
  */
 export function zipWith<T, U, V, E>(left: Result<T, E>, right: Result<U, E>, fn: (left: T, right: U) => V): Result<V, E> {
-  if (isErr(left)) return left as Err<E>;
-  if (isErr(right)) return right as Err<E>;
-  return fn(left as Ok<T>, right as Ok<U>) as Ok<V>;
+  if (isErr(left)) return left;
+  if (isErr(right)) return right;
+  return fn(left, right) as Ok<V>;
 }
 
 /**
@@ -634,7 +593,7 @@ export function any<T, E>(results: Result<T, E>[]): Result<Widen<T>, WidenNever<
  */
 export function transpose<T, E>(result: Result<Option<T>, E>): Option<Result<T, E>> {
   if (isErr(result)) {
-    return ERR((result as Err<E>).error) as Option<Result<T, E>>;
+    return ERR(result.error) as Option<Result<T, E>>;
   }
   const opt = result as Option<T>;
   return isNone(opt) ? NONE : (opt as unknown as Ok<T> as Option<Result<T, E>>);
@@ -664,49 +623,7 @@ export function isOkAnd<T, E>(result: Result<T, E>, predicate: (value: T) => boo
  * isErrAnd(ok(42), e => true)                       // false
  */
 export function isErrAnd<T, E>(result: Result<T, E>, predicate: (error: E) => boolean): boolean {
-  return isErr(result) && predicate((result as Err<E>).error);
-}
-
-/**
- * Maps an async function over an Ok value.
- * @param result - The Result to map
- * @param fn - Async transform function
- * @param onRejected - Optional rejection handler
- * @returns Promise of mapped Result
- * @example
- * await mapAsync(ok(2), async x => x * 2) // Ok(4)
- */
-export async function mapAsync<T, U, E = unknown>(
-  result: Result<T, E>,
-  fn: (value: T) => Promise<U>,
-  onRejected?: (error: unknown) => E,
-): Promise<Result<U, E>> {
-  if (isErr(result)) return result as Err<E>;
-  return fromPromise(fn(result as Ok<T>), onRejected);
-}
-
-/**
- * Chains an async Result-returning function.
- * @param result - The Result to chain
- * @param fn - Async function returning a Result
- * @returns Promise of the chained Result
- * @example
- * await andThenAsync(ok(2), async x => ok(x * 2)) // Ok(4)
- */
-export async function andThenAsync<T, U, E>(result: Result<T, E>, fn: (value: T) => Promise<Result<U, E>>): Promise<Result<U, E>> {
-  if (isErr(result)) return result as Err<E>;
-  return fn(result as Ok<T>);
-}
-
-/**
- * Pattern matches with async handlers.
- * @param result - The Result to match
- * @param onOk - Async handler for Ok
- * @param onErr - Async handler for Err
- * @returns Promise of the handler result
- */
-export async function matchAsync<T, E, U>(result: Result<T, E>, onOk: (value: T) => Promise<U>, onErr: (error: E) => Promise<U>): Promise<U> {
-  return isOk(result) ? onOk(result) : onErr(result.error);
+  return isErr(result) && predicate(result.error);
 }
 
 export function settledToResult<T, E>(result: PromiseSettledResult<Result<T, E>>): Result<T, E> {
@@ -737,11 +654,9 @@ export async function partitionAsync<T, E>(promises: Iterable<Promise<Result<T, 
  * settleMaybePromise([1, Promise.resolve(2)])     // Promise<[Ok(1), Ok(2)]>
  * settleMaybePromise([Promise.reject('e')])       // Promise<[Err('e')]>
  */
-export function settleMaybePromise<T, E = unknown>(
-  values: MaybePromise<T>[]
-): Result<T, E>[] | Promise<Result<T, E>[]> {
+export function settleMaybePromise<T, E = unknown>(values: MaybePromise<T>[]): Result<T, E>[] | Promise<Result<T, E>[]> {
   const len = values.length;
-  const results: Result<T, E>[] = new Array(len);
+  const results = new Array<Result<T, E>>(len);
   let pendingIndices: number[] | undefined;
   let pendingPromises: Promise<T>[] | undefined;
 
@@ -757,15 +672,42 @@ export function settleMaybePromise<T, E = unknown>(
 
   if (!pendingPromises) return results;
 
-  return Promise.allSettled(pendingPromises).then(settled => {
+  return Promise.allSettled(pendingPromises).then((settled) => {
     for (let i = 0; i < settled.length; i++) {
       const s = settled[i];
-      results[pendingIndices![i]] = s.status === 'fulfilled'
-        ? s.value as Ok<T>
-        : ERR(s.reason as E);
+      results[pendingIndices![i]] = s.status === 'fulfilled' ? (s.value as Ok<T>) : ERR(s.reason as E);
     }
     return results;
   });
+}
+
+export async function partitionMaybePromiseAsync<T, E>(
+  values: MaybePromise<Result<T, E>>[],
+  oks: Widen<T>[],
+  errs: WidenNever<E>[],
+  startIndex: number = 0,
+): Promise<[Widen<T>[], WidenNever<E>[]]> {
+  const suffixLength = values.length - startIndex;
+  const pending = new Array<Promise<Result<T, E>>>(suffixLength);
+
+  for (let i = 0; i < suffixLength; i++) {
+    const value = values[startIndex + i];
+    pending[i] = Promise.resolve(value).then(
+      (result) => result as Result<T, E>,
+      (error) => ERR(error as E),
+    );
+  }
+
+  const resolved = await Promise.all(pending);
+  for (let i = 0; i < resolved.length; i++) {
+    const result = resolved[i];
+    if (isOk(result)) {
+      oks.push(result as Widen<T>);
+    } else {
+      errs.push((result as Err<WidenNever<E>>).error);
+    }
+  }
+  return [oks, errs] as [Widen<T>[], WidenNever<E>[]];
 }
 
 /**
@@ -777,26 +719,24 @@ export function settleMaybePromise<T, E = unknown>(
  * partitionMaybePromise([ok(1), err('a')])                   // [[1], ['a']] - sync
  * partitionMaybePromise([ok(1), Promise.resolve(err('a'))]) // Promise<[[1], ['a']]>
  */
-export function partitionMaybePromise<T, E>(
-  values: MaybePromise<Result<T, E>>[]
-): [Widen<T>[], WidenNever<E>[]] | Promise<[Widen<T>[], WidenNever<E>[]]> {
+export function partitionMaybePromise<T, E>(values: MaybePromise<Result<T, E>>[]): [Widen<T>[], WidenNever<E>[]] | Promise<[Widen<T>[], WidenNever<E>[]]> {
   const len = values.length;
-  let hasAsync = false;
+  const oks: Widen<T>[] = [];
+  const errs: WidenNever<E>[] = [];
 
   for (let i = 0; i < len; i++) {
-    if (isThenable(values[i])) {
-      hasAsync = true;
-      break;
+    const value = values[i];
+    if (isThenable(value)) {
+      return partitionMaybePromiseAsync(values, oks, errs, i);
+    }
+    if (isOk(value)) {
+      oks.push(value as Widen<T>);
+    } else {
+      errs.push((value as Err<WidenNever<E>>).error);
     }
   }
 
-  if (!hasAsync) {
-    return partition(values as Result<T, E>[]) as [Widen<T>[], WidenNever<E>[]];
-  }
-
-  return Promise.allSettled(values.map(v => Promise.resolve(v))).then(settled =>
-    partition(settled.map(settledToResult)) as [Widen<T>[], WidenNever<E>[]]
-  );
+  return [oks, errs];
 }
 
 /**
@@ -815,7 +755,6 @@ export function safeTry<T>(fn: () => T): Result<T, unknown> {
   try {
     return fn() as Ok<T>;
   } catch (e) {
-    if (isErr(e)) return e;
     return ERR(e);
   }
 }
@@ -833,10 +772,8 @@ export function safeTry<T>(fn: () => T): Result<T, unknown> {
  */
 export async function safeTryAsync<T>(fn: () => Promise<T>): Promise<Result<T, unknown>> {
   try {
-    return await fn() as Ok<T>;
+    return (await fn()) as Ok<T>;
   } catch (e) {
-    if (isErr(e)) return e;
     return ERR(e);
   }
 }
-

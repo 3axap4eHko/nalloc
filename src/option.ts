@@ -437,7 +437,7 @@ export function isSomeAnd<T>(opt: Option<T>, predicate: (value: T) => boolean): 
  * toArray(none)     // []
  */
 export function toArray<T>(opt: Option<T>): readonly T[] {
-  return isSome(opt) ? [opt] : EMPTY as readonly T[];
+  return isSome(opt) ? [opt] : (EMPTY as readonly T[]);
 }
 
 /**

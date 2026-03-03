@@ -31,6 +31,7 @@ export default tseslint.config(
       '@typescript-eslint/no-empty-object-type': 0,
       '@typescript-eslint/no-unsafe-declaration-merging': 0,
       '@typescript-eslint/prefer-promise-reject-errors': 0,
+      '@typescript-eslint/only-throw-error': 0,
     },
   },
 );

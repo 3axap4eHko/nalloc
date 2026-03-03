@@ -24,10 +24,7 @@ import {
   isOkAnd,
   isErrAnd,
   of,
-  ofAsync,
   tryCatch,
-  tryAsync,
-  fromPromise,
   unwrapOrReturn,
   assertOk,
   assertErr,
@@ -162,17 +159,11 @@ const tryResult = of(() => {
 });
 assert<Equals<typeof tryResult, Result<number, unknown>>>;
 
-const tryResultTyped = of<number, Error>(() => {
+const tryResultTyped = of(() => {
   if (Math.random() > 0.5) throw new Error("oops");
   return 42;
 });
-assert<Equals<typeof tryResultTyped, Result<number, Error>>>;
-
-const asyncResult = ofAsync<number>(async () => {
-  return 42;
-});
-assert<Equals<typeof asyncResult, Promise<Result<number, unknown>>>>;
-
+assert<Equals<typeof tryResultTyped, Result<number, unknown>>>;
 
 
 const unwrapOrResult = unwrapOr(err<string>("error") as Result<number, string>, 42);
@@ -214,16 +205,6 @@ const tryCatchTyped = tryCatch<number, string>(() => {
 }, error => (error as Error).message);
 assert<Equals<typeof tryCatchTyped, Result<number, string>>>;
 
-const tryAsyncResult = tryAsync(async () => 1);
-assert<Equals<typeof tryAsyncResult, Promise<Result<number, unknown>>>>;
-
-const tryAsyncTyped = tryAsync<number, string>(async () => {
-  throw new Error('boom');
-}, error => (error as Error).message);
-assert<Equals<typeof tryAsyncTyped, Promise<Result<number, string>>>>;
-
-const fromPromiseResult = fromPromise(Promise.resolve(1));
-assert<Equals<typeof fromPromiseResult, Promise<Result<number, unknown>>>>;
 
 const unwrapFallback = unwrapOrReturn(ok(1) as Result<number, string>, () => 'fallback');
 assert<Equals<typeof unwrapFallback, number | string>>;
@@ -237,7 +218,7 @@ assertErr(maybeErr);
 const narrowedErr: Err<string> = maybeErr;
 
 const allResult = all([ok(1), ok(2)]);
-assert<Equals<typeof allResult, Result<number[], unknown>>>;
+assert<Equals<typeof allResult, Result<readonly number[], unknown>>>;
 
 const anyResult = any([err('a'), ok(3)]);
 assert<Equals<typeof anyResult, Result<number, string[]>>>;

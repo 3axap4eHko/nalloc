@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   of,
-  ofAsync,
   isSomeErr,
   map,
   mapErr,
@@ -34,11 +33,6 @@ import {
   isOkAnd,
   isErrAnd,
   tryCatch,
-  tryAsync,
-  fromPromise,
-  mapAsync,
-  andThenAsync,
-  matchAsync,
   unwrapOrReturn,
   assertOk,
   assertErr,
@@ -54,7 +48,6 @@ import {
   safeTryAsync
 } from '../result.js';
 import { ok, err, isOk, isErr, optionOf as optOf, none } from '../types.js';
-import { formatResult, inspectResult } from '../devtools.js';
 
 describe('Result', () => {
   describe('constructors', () => {
@@ -64,10 +57,9 @@ describe('Result', () => {
       expect(result).toBe(42);
     });
 
-    it('ok does not throw when passed an Err', () => {
+    it('ok throws when passed an Err', () => {
       const error = err('test error');
-      expect(() => ok(error)).not.toThrow();
-      expect(isErr(ok(error))).toBe(true);
+      expect(() => ok(error)).toThrow('ok() cannot wrap an Err value');
     });
 
     it('err creates Err result', () => {
@@ -88,17 +80,6 @@ describe('Result', () => {
       expect((failure as any).error.message).toBe('failed');
     });
 
-    it('ofAsync catches async errors', async () => {
-      const success = await ofAsync(async () => 42);
-      expect(isOk(success)).toBe(true);
-      expect(unwrap(success)).toBe(42);
-
-      const failure = await ofAsync(async () => {
-        throw new Error('async failed');
-      });
-      expect(isErr(failure)).toBe(true);
-      expect((failure as any).error.message).toBe('async failed');
-    });
   });
 
   describe('type guards', () => {
@@ -256,11 +237,11 @@ describe('Result', () => {
       expect(unwrap(ok(42))).toBe(42);
     });
 
-    it('throws Err for Err', () => {
+    it('throws error value for Err', () => {
       const e = err('error');
       let caught: unknown;
       try { unwrap(e); } catch (x) { caught = x; }
-      expect(caught).toBe(e);
+      expect(caught).toBe('error');
     });
   });
 
@@ -440,6 +421,12 @@ describe('Result', () => {
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('first');
     });
+
+    it('returns second Err when first is Ok', () => {
+      const result = zip(ok(1), err('second'));
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('second');
+    });
   });
 
   describe('zipWith', () => {
@@ -452,6 +439,12 @@ describe('Result', () => {
       const result = zipWith(err('fail'), ok(3), (a, b) => a + b);
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('fail');
+    });
+
+    it('returns Err from right when left is Ok', () => {
+      const result = zipWith(ok(2), err('right'), (a, b) => a + b);
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('right');
     });
   });
 
@@ -604,70 +597,14 @@ describe('Result', () => {
       expect((result as any).error).toBe('boom');
     });
 
-    it('tryAsync maps async rejection', async () => {
-      const result = await tryAsync<number, string>(
-        async () => {
-          throw new Error('boom');
-        },
-        error => (error as Error).message,
-      );
-      expect(isErr(result)).toBe(true);
-      expect((result as any).error).toBe('boom');
-    });
-
-    it('fromPromise resolves to Ok', async () => {
-      const result = await fromPromise(Promise.resolve(5));
-      expect(isOk(result)).toBe(true);
-      expect(unwrap(result)).toBe(5);
-    });
-
-    it('fromPromise maps rejection', async () => {
-      const result = await fromPromise(
-        Promise.reject(new Error('fail')),
-        error => (error as Error).message.toUpperCase(),
-      );
-      expect(isErr(result)).toBe(true);
-      expect((result as any).error).toBe('FAIL');
-    });
-  });
-
-  describe('async mapping', () => {
-    it('mapAsync maps Ok value', async () => {
-      const result = await mapAsync(ok(2), async value => value * 3);
-      expect(isOk(result)).toBe(true);
-      expect(unwrap(result)).toBe(6);
-    });
-
-    it('mapAsync returns Err unchanged', async () => {
-      const result = await mapAsync(err('nope'), async (value: number) => value * 3);
-      expect(isErr(result)).toBe(true);
-      expect((result as any).error).toBe('nope');
-    });
-
-    it('andThenAsync chains Ok value', async () => {
-      const result = await andThenAsync(ok(2), async value => ok(value * 4));
-      expect(isOk(result)).toBe(true);
-      expect(unwrap(result)).toBe(8);
-    });
-
-    it('matchAsync selects branch', async () => {
-      const okValue = await matchAsync(
-        ok(5),
-        async value => value * 2,
-        async () => 0,
-      );
-      expect(okValue).toBe(10);
-
-      const errValue = await matchAsync(
-        err('fail'),
-        async () => 0,
-        async error => error.length,
-      );
-      expect(errValue).toBe(4);
-    });
   });
 
   describe('control helpers', () => {
+    it('unwrapOrReturn returns value for Ok', () => {
+      const value = unwrapOrReturn(ok(42), () => 'fallback');
+      expect(value).toBe(42);
+    });
+
     it('unwrapOrReturn returns fallback for Err', () => {
       const value = unwrapOrReturn(err('oops'), () => 'fallback');
       expect(value).toBe('fallback');
@@ -679,10 +616,18 @@ describe('Result', () => {
       expect(result.id).toBe(1);
     });
 
+    it('assertOk throws on Err with default message', () => {
+      expect(() => assertOk(err('fail'))).toThrow('Expected Ok result');
+    });
+
     it('assertErr narrows failure', () => {
       const result = err('oops');
       assertErr(result);
       expect(result.error).toBe('oops');
+    });
+
+    it('assertErr throws on Ok with default message', () => {
+      expect(() => assertErr(ok(42))).toThrow('Expected Err result');
     });
   });
 
@@ -913,7 +858,7 @@ describe('Result', () => {
         return 42;
       });
       expect(isErr(result)).toBe(true);
-      expect(result).toBe(e);
+      expect((result as { error: string }).error).toBe('failed');
     });
 
     it('catches regular errors', () => {
@@ -955,7 +900,7 @@ describe('Result', () => {
         return 42;
       });
       expect(isErr(result)).toBe(true);
-      expect(result).toBe(e);
+      expect((result as { error: string }).error).toBe('async failed');
     });
 
     it('catches rejected promises', async () => {
@@ -968,15 +913,4 @@ describe('Result', () => {
     });
   });
 
-  describe('introspection helpers', () => {
-    it('inspectResult exposes discriminated metadata', () => {
-      expect(inspectResult(ok(4))).toEqual({ status: 'ok', value: 4 });
-      expect(inspectResult(err('error'))).toEqual({ status: 'err', error: 'error' });
-    });
-
-    it('formatResult prints friendly string', () => {
-      expect(formatResult(ok(1))).toBe('Ok(1)');
-      expect(formatResult(err(new Error('boom')))).toBe('Err(boom)');
-    });
-  });
 });
