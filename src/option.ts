@@ -312,8 +312,9 @@ export function orElse<T>(opt: Option<T>, fn: () => Option<T>): Option<T> {
  * xor(none, none)       // None
  */
 export function xor<T>(opt: Option<T>, optb: Option<T>): Option<T> {
-  if (isSome(opt) && isNone(optb)) return opt;
-  if (isNone(opt) && isSome(optb)) return optb;
+  const a = isSome(opt);
+  const b = isSome(optb);
+  if (a !== b) return a ? opt : optb;
   return NONE;
 }
 

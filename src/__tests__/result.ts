@@ -45,7 +45,8 @@ import {
   filterOk,
   filterErr,
   safeTry,
-  safeTryAsync
+  safeTryAsync,
+  fromPromise
 } from '../result.js';
 import { ok, err, isOk, isErr, optionOf as optOf, none } from '../types.js';
 
@@ -910,6 +911,41 @@ describe('Result', () => {
       });
       expect(isErr(result)).toBe(true);
       expect((result as { error: Error }).error.message).toBe('rejected');
+    });
+  });
+
+  describe('fromPromise', () => {
+    it('returns Ok for resolved promise', async () => {
+      const result = await fromPromise(Promise.resolve(42));
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(42);
+    });
+
+    it('returns Err for rejected promise', async () => {
+      const result = await fromPromise(Promise.reject(new Error('boom')));
+      expect(isErr(result)).toBe(true);
+      expect((result as { error: Error }).error.message).toBe('boom');
+    });
+
+    it('uses onError mapper for rejected promise', async () => {
+      const result = await fromPromise(
+        Promise.reject(new Error('boom')),
+        (e) => `mapped: ${(e as Error).message}`,
+      );
+      expect(isErr(result)).toBe(true);
+      expect((result as { error: string }).error).toBe('mapped: boom');
+    });
+
+    it('handles Ok(null) as valid success', async () => {
+      const result = await fromPromise(Promise.resolve(null));
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(null);
+    });
+
+    it('returns Err with unknown type when no onError provided', async () => {
+      const result = await fromPromise(Promise.reject('string error'));
+      expect(isErr(result)).toBe(true);
+      expect((result as { error: string }).error).toBe('string error');
     });
   });
 

@@ -167,7 +167,7 @@ export function isOk<E>(result: Err<E>): false;
 export function isOk<T, E>(result: Result<T, E>): result is Ok<T>;
 export function isOk(result: unknown): boolean;
 export function isOk(result: unknown): boolean {
-  return !(result as Record<symbol, unknown>)?.[ERR_BRAND];
+  return typeof result !== 'object' || result === null || !(result as Record<symbol, boolean>)[ERR_BRAND];
 }
 
 /**
@@ -183,7 +183,7 @@ export function isErr(result: Ok<unknown>): false;
 export function isErr<T, E>(result: Result<T, E>): result is Err<E>;
 export function isErr(result: unknown): result is Err<unknown>;
 export function isErr(result: unknown): boolean {
-  return (result as Record<symbol, unknown>)?.[ERR_BRAND] === true;
+  return typeof result === 'object' && result !== null && (result as Record<symbol, boolean>)[ERR_BRAND] === true;
 }
 
 export function okUnchecked<T>(value: T): Ok<T> {

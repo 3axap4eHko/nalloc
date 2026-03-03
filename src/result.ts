@@ -34,6 +34,25 @@ export function of<T>(fn: () => T): Result<T, unknown> {
 }
 
 /**
+ * Converts a Promise to a Result. Resolves to Ok if successful, Err on rejection.
+ * @param promise - The promise to convert
+ * @param onError - Optional error transformer
+ * @returns Promise resolving to Ok(value) or Err(error)
+ * @example
+ * await fromPromise(fetch('/api'))              // Ok(Response) or Err(unknown)
+ * await fromPromise(fetch('/api'), e => String(e)) // Ok(Response) or Err(string)
+ */
+export async function fromPromise<T>(promise: Promise<T>): Promise<Result<T, unknown>>;
+export async function fromPromise<T, E>(promise: Promise<T>, onError: (error: unknown) => E): Promise<Result<T, E>>;
+export async function fromPromise<T, E = unknown>(promise: Promise<T>, onError?: (error: unknown) => E): Promise<Result<T, E>> {
+  try {
+    return (await promise) as Ok<T>;
+  } catch (error) {
+    return ERR(onError ? onError(error) : (error as E));
+  }
+}
+
+/**
  * Executes a function that may return sync or async, preserving sync execution when possible.
  * @param fn - Function that may return T or Promise<T>
  * @param onError - Optional error transformer
@@ -551,7 +570,15 @@ export function collect<T, E>(results: Result<T, E>[]): Result<T[], E> {
  * collectAll([ok(1), err('a'), err('b')]) // Err(['a', 'b'])
  */
 export function collectAll<T, E>(results: Result<T, E>[]): Result<T[], E[]> {
-  const [oks, errs] = partition(results);
+  const oks: T[] = [];
+  const errs: E[] = [];
+  for (const result of results) {
+    if (isOk(result)) {
+      oks.push(result);
+    } else {
+      errs.push(result.error);
+    }
+  }
   return errs.length > 0 ? ERR(errs) : (oks as Ok<T[]>);
 }
 
