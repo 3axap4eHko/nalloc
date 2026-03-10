@@ -107,6 +107,40 @@ import { Option } from 'nalloc';
 Option.map(42, x => x * 2);               // value IS the Option
 ```
 
+### From oxide.ts
+
+```ts
+// oxide.ts
+import { Some, None, Ok, Err } from 'oxide.ts';
+const opt = Some(42);
+opt.map(x => x * 2);
+const result = Ok(42);
+result.mapErr(e => new Error(e));
+
+// nalloc - no wrapper objects on the happy path
+import { Option, Result, ok } from 'nalloc';
+Option.map(42, x => x * 2);              // 42 is the Option itself
+const result = ok(42);                    // zero allocation
+Result.mapErr(result, e => new Error(e));
+```
+
+### From ts-results
+
+```ts
+// ts-results
+import { Ok, Err, Some, None } from 'ts-results';
+const result = new Ok(42);
+result.map(x => x * 2);
+const opt = Some(42);
+opt.unwrapOr(0);
+
+// nalloc - same safety, zero allocations
+import { Option, Result, ok } from 'nalloc';
+const result = ok(42);                    // no wrapper
+Result.map(result, x => x * 2);
+Option.unwrapOr(42, 0);                  // value IS the Option
+```
+
 ### From Rust
 
 The API mirrors Rust's `Option` and `Result`:
@@ -350,14 +384,28 @@ Iter.tryForEach(items, item => processItem(item));
 
 ## Comparison
 
-| Feature | nalloc | neverthrow | fp-ts | oxide.ts |
-|---------|---------|------------|-------|----------|
-| Zero-alloc Option | Yes | No | No | No |
-| Zero-alloc Ok | Yes | No | No | No |
-| Bundle size | Tiny | Small | Large | Small |
-| Learning curve | Low | Low | High | Low |
-| Async support | Yes | Yes | Yes | Limited |
-| Tree-shakeable | Yes | Yes | Yes | Yes |
+| Feature | nalloc | neverthrow | fp-ts | oxide.ts | ts-results |
+|---------|---------|------------|-------|----------|------------|
+| Zero-alloc Option | Yes | No | No | No | No |
+| Zero-alloc Ok | Yes | No | No | No | No |
+| Bundle size | Tiny | Small | Large | Small | Small |
+| Learning curve | Low | Low | High | Low | Low |
+| Async support | Yes | Yes | Yes | Limited | No |
+| Tree-shakeable | Yes | Yes | Yes | Yes | Yes |
+| Iterator utilities | Yes | No | Yes | No | No |
+| safeTry (? operator) | Yes | Yes | No | No | No |
+
+## Alternatives
+
+Looking for a TypeScript Result/Option library? Here's how nalloc compares:
+
+- **neverthrow** - Popular, method-chaining API. Allocates a wrapper for every Ok and Err. nalloc avoids allocation on the happy path entirely.
+- **fp-ts / effect** - Full functional programming ecosystem with Either and Option. Powerful but heavy and steep learning curve. nalloc focuses on Result/Option with a simpler API.
+- **oxide.ts** - Rust-inspired with class-based wrappers. Every Some/Ok allocates an object. nalloc represents Some/Ok as the raw value.
+- **ts-results / ts-results-es** - Direct Rust port with class instances. Similar API surface to nalloc, but allocates on every construction.
+- **true-myth** - Result and Maybe with a functional API. Wraps all values. nalloc is a similar philosophy with zero-allocation design.
+
+nalloc is designed for codebases where allocation pressure matters - high-throughput servers, hot loops, and performance-sensitive paths - while keeping the same safety guarantees.
 
 ## License
 
