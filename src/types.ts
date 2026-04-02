@@ -28,6 +28,8 @@ export type Some<T> = ValueType<T> & { readonly [SOME_BRAND]: true };
 /** Represents the absence of a value (null or undefined). */
 export type None = NoneValueType & { readonly [SOME_BRAND]: false };
 
+export type UnOption<V, T extends Option<V>> = T extends Some<V> ? V : None;
+
 /** Constant representing None. Use this instead of null/undefined for clarity. */
 export const NONE = undefined as None;
 
@@ -226,7 +228,7 @@ export type MaybePromise<T> = T | Promise<T> | PromiseLike<T>;
  * @returns true if value is a PromiseLike
  */
 export function isThenable<T>(value: MaybePromise<T>): value is PromiseLike<T> {
-  return typeof (value as PromiseLike<T>)?.then === 'function';
+  return (typeof value === 'object' || typeof value === 'function') && value !== null && typeof (value as PromiseLike<T>).then === 'function';
 }
 
 /**
@@ -235,5 +237,5 @@ export function isThenable<T>(value: MaybePromise<T>): value is PromiseLike<T> {
  * @returns true if value is not a PromiseLike
  */
 export function isSync<T>(value: MaybePromise<T>): value is T {
-  return typeof (value as PromiseLike<T>)?.then !== 'function';
+  return !(typeof value === 'object' || typeof value === 'function') || value === null || typeof (value as PromiseLike<T>).then !== 'function';
 }

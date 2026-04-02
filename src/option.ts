@@ -158,11 +158,7 @@ export function flatMap<T, U>(opt: Option<T>, fn: (value: T) => Option<U>): Opti
  * @param fn - Function returning an Option
  * @returns The result of fn(value) if Some, None otherwise
  */
-export function andThen<T, U>(opt: None, fn: (value: T) => Option<U>): None;
-export function andThen<T, U>(opt: Option<T>, fn: (value: T) => Option<U>): Option<U>;
-export function andThen<T, U>(opt: Option<T>, fn: (value: T) => Option<U>): Option<U> {
-  return isNone(opt) ? NONE : fn(opt);
-}
+export const andThen: typeof flatMap = flatMap;
 
 /**
  * Executes a side effect if Some, then returns the original Option.
@@ -412,7 +408,7 @@ export function flatten<T>(opt: Option<Option<T>>): Option<T> {
  * contains(none, 42)     // false
  */
 export function contains<T>(opt: Option<T>, value: T): boolean {
-  return isSome(opt) && opt === value;
+  return isSome(opt) && (opt === value || (opt !== opt && value !== value));
 }
 
 /**

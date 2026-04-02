@@ -118,7 +118,7 @@ export function assertOk<T, E>(result: Result<T, E>, message?: string): asserts 
  */
 export function assertErr<T, E>(result: Result<T, E>, message?: string): asserts result is Err<E> {
   if (isOk(result)) {
-    throw new Error(message ?? 'Expected Err result.');
+    throw new Error(message ?? `Expected Err result. Received value: ${String(result)}`);
   }
 }
 
@@ -188,11 +188,7 @@ export function flatMap<T, U, E>(result: Result<T, E>, fn: (value: T) => Result<
  * @param fn - Function returning a Result
  * @returns The result of fn(value) if Ok, Err unchanged
  */
-export function andThen<T, U, E>(result: Err<E>, fn: (value: T) => Result<U, E>): Err<E>;
-export function andThen<T, U, E>(result: Result<T, E>, fn: (value: T) => Result<U, E>): Result<U, E>;
-export function andThen<T, U, E>(result: Result<T, E>, fn: (value: T) => Result<U, E>): Result<U, E> {
-  return isErr(result) ? result : fn(result);
-}
+export const andThen: typeof flatMap = flatMap;
 
 /**
  * Executes a side effect if Ok, then returns the original Result.
@@ -551,11 +547,13 @@ export function filterErr<T, E>(results: Iterable<Result<T, E>>): E[] {
  * collect([ok(1), err('e')])    // Err('e')
  */
 export function collect<T, E>(results: Result<T, E>[]): Result<T[], E> {
-  const values: T[] = [];
+  const len = results.length;
+  const values = new Array<T>(len);
 
-  for (const result of results) {
+  for (let i = 0; i < len; i++) {
+    const result = results[i];
     if (isErr(result)) return result;
-    values.push(result);
+    values[i] = result;
   }
 
   return values as Ok<T[]>;
@@ -715,25 +713,38 @@ export async function partitionMaybePromiseAsync<T, E>(
   startIndex: number = 0,
 ): Promise<[Widen<T>[], WidenNever<E>[]]> {
   const suffixLength = values.length - startIndex;
-  const pending = new Array<Promise<Result<T, E>>>(suffixLength);
+  const pendingPromises: Promise<Result<T, E>>[] = [];
 
   for (let i = 0; i < suffixLength; i++) {
     const value = values[startIndex + i];
-    pending[i] = Promise.resolve(value).then(
-      (result) => result as Result<T, E>,
-      (error) => ERR(error as E),
-    );
-  }
-
-  const resolved = await Promise.all(pending);
-  for (let i = 0; i < resolved.length; i++) {
-    const result = resolved[i];
-    if (isOk(result)) {
-      oks.push(result as Widen<T>);
+    if (isThenable(value)) {
+      pendingPromises.push(
+        Promise.resolve(value).then(
+          (result) => result as Result<T, E>,
+          (error) => ERR(error as E),
+        ),
+      );
     } else {
-      errs.push((result as Err<WidenNever<E>>).error);
+      if (isOk(value)) {
+        oks.push(value as Widen<T>);
+      } else {
+        errs.push((value as Err<WidenNever<E>>).error);
+      }
     }
   }
+
+  if (pendingPromises.length > 0) {
+    const resolved = await Promise.all(pendingPromises);
+    for (let i = 0; i < resolved.length; i++) {
+      const result = resolved[i];
+      if (isOk(result)) {
+        oks.push(result as Widen<T>);
+      } else {
+        errs.push((result as Err<WidenNever<E>>).error);
+      }
+    }
+  }
+
   return [oks, errs] as [Widen<T>[], WidenNever<E>[]];
 }
 

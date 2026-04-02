@@ -207,7 +207,7 @@ assert<Equals<typeof tryCatchTyped, Result<number, string>>>;
 
 
 const unwrapFallback = unwrapOrReturn(ok(1) as Result<number, string>, () => 'fallback');
-assert<Equals<typeof unwrapFallback, number | string>>;
+assert<Equals<typeof unwrapFallback, number | 'fallback'>>;
 
 declare const maybeResult: Result<number, string>;
 assertOk(maybeResult);
