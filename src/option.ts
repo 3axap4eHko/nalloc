@@ -4,6 +4,8 @@ import type { Some, None, Option, NoneValueType, ValueType, Result, Ok, Widen } 
 export type { Some, None, Option };
 export { isSome, isNone, of };
 
+const NONE_PAIR: readonly [None, None] = Object.freeze([NONE, NONE]) as readonly [None, None];
+
 /**
  * Creates an Option from a nullable value with widened types.
  * @param value - The value to wrap
@@ -351,7 +353,7 @@ export function zip<T, U>(opt: Option<T>, other: Option<U>): Option<[T, U]> {
  * unzip(none)           // [None, None]
  */
 export function unzip<T, U>(opt: Option<[T, U]>): [Option<T>, Option<U>] {
-  if (isNone(opt)) return [NONE, NONE];
+  if (isNone(opt)) return NONE_PAIR as [Option<T>, Option<U>];
   const [a, b] = opt;
   return [of(a), of(b)];
 }

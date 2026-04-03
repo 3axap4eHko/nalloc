@@ -4,6 +4,9 @@ import type { Ok, Err, Result, Option, Widen, WidenNever, MaybePromise } from '.
 export type { Ok, Err, Result };
 export { isOk, isErr };
 
+const identity = <T>(v: T): T => v;
+const wrapErr = (error: unknown): Err<never> => ERR(error) as Err<never>;
+
 /**
  * Executes a function and captures the result or error.
  * @param fn - Function to execute
@@ -547,13 +550,12 @@ export function filterErr<T, E>(results: Iterable<Result<T, E>>): E[] {
  * collect([ok(1), err('e')])    // Err('e')
  */
 export function collect<T, E>(results: Result<T, E>[]): Result<T[], E> {
-  const len = results.length;
-  const values = new Array<T>(len);
+  const values: T[] = [];
 
-  for (let i = 0; i < len; i++) {
+  for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (isErr(result)) return result;
-    values[i] = result;
+    values.push(result);
   }
 
   return values as Ok<T[]>;
@@ -681,7 +683,7 @@ export async function partitionAsync<T, E>(promises: Iterable<Promise<Result<T, 
  */
 export function settleMaybePromise<T, E = unknown>(values: MaybePromise<T>[]): Result<T, E>[] | Promise<Result<T, E>[]> {
   const len = values.length;
-  const results = new Array<Result<T, E>>(len);
+  const results = new Array<Result<T, E>>(len).fill(0 as never);
   let pendingIndices: number[] | undefined;
   let pendingPromises: Promise<T>[] | undefined;
 
@@ -718,12 +720,7 @@ export async function partitionMaybePromiseAsync<T, E>(
   for (let i = 0; i < suffixLength; i++) {
     const value = values[startIndex + i];
     if (isThenable(value)) {
-      pendingPromises.push(
-        Promise.resolve(value).then(
-          (result) => result as Result<T, E>,
-          (error) => ERR(error as E),
-        ),
-      );
+      pendingPromises.push(Promise.resolve(value).then(identity, wrapErr));
     } else {
       if (isOk(value)) {
         oks.push(value as Widen<T>);

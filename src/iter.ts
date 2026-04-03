@@ -1,6 +1,8 @@
 import { isSome, isErr, err as ERR } from './types.js';
 import type { Option, Result, Ok } from './types.js';
 
+const ITER_DONE: IteratorResult<never> = Object.freeze({ value: undefined as never, done: true as const });
+
 /**
  * Yields mapped values while the mapping function returns Some, stops at the first None.
  * @param source - The iterable to map over
@@ -42,7 +44,7 @@ export function safeIter<T>(source: Iterable<T>): IterableIterator<Result<T, unk
       return this;
     },
     next(): IteratorResult<Result<T, unknown>> {
-      if (done) return { value: undefined, done: true };
+      if (done) return ITER_DONE;
       try {
         const next = iter.next();
         if (next.done) {
@@ -64,7 +66,7 @@ export function safeIter<T>(source: Iterable<T>): IterableIterator<Result<T, unk
           // suppressed
         }
       }
-      return { value: undefined, done: true };
+      return ITER_DONE;
     },
   };
 }

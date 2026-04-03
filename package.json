@@ -46,7 +46,7 @@
     "build": "rm -rf build && inop src build -i __tests__ -i *.tmp.ts && tsc --declaration --emitDeclarationOnly",
     "lint": "eslint .",
     "test": "vitest run",
-    "bench": "overtake benchmarks/* --pin-cores -w 2 --progress",
+    "bench": "overtake benchmarks/* --pin-cores -w 1 --progress",
     "bench:save": "pnpm bench --save-baseline .bench-baseline.json",
     "bench:test": "pnpm bench --compare-baseline .bench-baseline.json"
   },

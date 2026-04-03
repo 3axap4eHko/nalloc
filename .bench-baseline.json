@@ -1,190 +1,190 @@
 {
   "version": 1,
-  "timestamp": "2026-04-02T05:22:17.428Z",
+  "timestamp": "2026-04-03T19:12:24.761Z",
   "results": {
     "nalloc/fromNullable/value": {
-      "ops": 563063063,
+      "ops": 546746856,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/fromNullable/null": {
-      "ops": 492125984,
+      "ops": 497017892,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isSome/value": {
-      "ops": 646412411,
+      "ops": 663129973,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isSome/null": {
-      "ops": 628140703,
+      "ops": 620732464,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isNone/value": {
-      "ops": 672043010,
+      "ops": 654450261,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isNone/null": {
-      "ops": 647249190,
+      "ops": 648508430,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/map/value": {
-      "ops": 471475719,
+      "ops": 514933058,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/map/null": {
-      "ops": 574382538,
+      "ops": 570776255,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/flatMap/value": {
-      "ops": 443262411,
+      "ops": 468384074,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/flatMap/null": {
-      "ops": 605693519,
+      "ops": 564334085,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/unwrapOr/value": {
-      "ops": 454132606,
+      "ops": 472589792,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/unwrapOr/null": {
-      "ops": 682593856,
-      "heapUsedKB": 0,
-      "dceWarning": false
-    },
-    "nalloc/match/value": {
-      "ops": 442282176,
-      "heapUsedKB": 0,
-      "dceWarning": false
-    },
-    "nalloc/match/null": {
-      "ops": 592417061,
-      "heapUsedKB": 0,
-      "dceWarning": false
-    },
-    "nalloc/ok/value": {
-      "ops": 696378830,
-      "heapUsedKB": 0,
-      "dceWarning": false
-    },
-    "nalloc/ok/json valid": {
-      "ops": 679347826,
-      "heapUsedKB": 0,
-      "dceWarning": false
-    },
-    "nalloc/ok/json invalid": {
       "ops": 673400673,
       "heapUsedKB": 0,
       "dceWarning": false
     },
+    "nalloc/match/value": {
+      "ops": 431406384,
+      "heapUsedKB": 0,
+      "dceWarning": false
+    },
+    "nalloc/match/null": {
+      "ops": 561482313,
+      "heapUsedKB": 0,
+      "dceWarning": false
+    },
+    "nalloc/ok/value": {
+      "ops": 606060606,
+      "heapUsedKB": 0,
+      "dceWarning": false
+    },
+    "nalloc/ok/json valid": {
+      "ops": 550964187,
+      "heapUsedKB": 0,
+      "dceWarning": false
+    },
+    "nalloc/ok/json invalid": {
+      "ops": 544365813,
+      "heapUsedKB": 0,
+      "dceWarning": false
+    },
     "nalloc/err/value": {
-      "ops": 680272108,
+      "ops": 662690523,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/err/json valid": {
-      "ops": 692041522,
+      "ops": 681663258,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/err/json invalid": {
-      "ops": 702740688,
+      "ops": 675675675,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/tryCatch/value": {
-      "ops": 32325844,
-      "heapUsedKB": 2484,
+      "ops": 30551142,
+      "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/tryCatch/json valid": {
-      "ops": 10870510,
-      "heapUsedKB": 419,
+      "ops": 9760192,
+      "heapUsedKB": 136,
       "dceWarning": false
     },
     "nalloc/tryCatch/json invalid": {
-      "ops": 232179,
-      "heapUsedKB": 3797,
+      "ops": 242829,
+      "heapUsedKB": 4100,
       "dceWarning": false
     },
     "nalloc/map/json valid": {
-      "ops": 432713111,
+      "ops": 474158368,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/map/json invalid": {
-      "ops": 431965442,
+      "ops": 472589792,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/flatMap/json valid": {
-      "ops": 381097560,
+      "ops": 471253534,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/flatMap/json invalid": {
-      "ops": 372856077,
+      "ops": 466853408,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/unwrapOr/json valid": {
-      "ops": 418410041,
+      "ops": 427715996,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/unwrapOr/json invalid": {
-      "ops": 405679513,
+      "ops": 434782608,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/match/json valid": {
-      "ops": 413052457,
+      "ops": 398247710,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/match/json invalid": {
-      "ops": 403714170,
+      "ops": 431778929,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isOk/value": {
-      "ops": 693000693,
+      "ops": 494804552,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isOk/json valid": {
-      "ops": 646830530,
+      "ops": 461254612,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isOk/json invalid": {
-      "ops": 681198910,
+      "ops": 458295142,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isErr/value": {
-      "ops": 680272108,
+      "ops": 606796116,
       "heapUsedKB": 0,
       "dceWarning": false
     },
     "nalloc/isErr/json valid": {
-      "ops": 683994528,
-      "heapUsedKB": 0,
+      "ops": 601684717,
+      "heapUsedKB": 2328,
       "dceWarning": false
     },
     "nalloc/isErr/json invalid": {
-      "ops": 685400959,
-      "heapUsedKB": 0,
+      "ops": 504795557,
+      "heapUsedKB": 3,
       "dceWarning": false
     }
   }
