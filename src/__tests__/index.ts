@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as index from '../index.js';
+import { pipe, Result } from '../index.js';
 import { isThenable, isSync } from '../types.js';
+import { ok, err } from '../types.js';
 
 describe('index.ts exports', () => {
   it('exports exist', () => {
@@ -51,5 +53,37 @@ describe('MaybePromise guards', () => {
       expect(isSync(null)).toBe(true);
       expect(isSync(undefined)).toBe(true);
     });
+  });
+});
+
+describe('pipe', () => {
+  it('returns value with no functions', () => {
+    expect(pipe(42)).toBe(42);
+  });
+
+  it('applies single function', () => {
+    expect(pipe(2, x => x * 3)).toBe(6);
+  });
+
+  it('applies multiple functions left to right', () => {
+    expect(pipe(2, x => x * 3, x => x + 1, x => String(x))).toBe('7');
+  });
+
+  it('works with Result operations', () => {
+    const result = pipe(
+      Result.tryCatch(() => JSON.parse('{"a":1}')),
+      r => Result.map(r, (v: { a: number }) => v.a),
+      r => Result.unwrapOr(r, 0),
+    );
+    expect(result).toBe(1);
+  });
+
+  it('works with Result error path', () => {
+    const result = pipe(
+      Result.tryCatch(() => JSON.parse('invalid')),
+      r => Result.map(r, (v: unknown) => v),
+      r => Result.unwrapOr(r, 'fallback'),
+    );
+    expect(result).toBe('fallback');
   });
 });

@@ -34,6 +34,7 @@ import {
   isErrAnd,
   tryCatch,
   wrap,
+  toThrowable,
   unwrapOrReturn,
   assertOk,
   assertErr,
@@ -47,8 +48,12 @@ import {
   filterErr,
   safeTry,
   safeTryAsync,
-  fromPromise
+  fromPromise,
+  fromSchema,
+  gen,
+  genAsync
 } from '../result.js';
+import type { StandardSchema } from '../result.js';
 import { ok, err, isOk, isErr, optionOf as optOf, none } from '../types.js';
 
 describe('Result', () => {
@@ -630,6 +635,34 @@ describe('Result', () => {
     });
   });
 
+  describe('toThrowable', () => {
+    it('returns Ok value for successful Result', () => {
+      const fn = (x: number) => ok(x * 2);
+      const throwing = toThrowable(fn);
+      expect(throwing(5)).toBe(10);
+    });
+
+    it('throws Err error for failed Result', () => {
+      const fn = (x: number) => x > 0 ? ok(x) : err('negative');
+      const throwing = toThrowable(fn);
+      expect(() => throwing(-1)).toThrow('negative');
+    });
+
+    it('throws Error instances directly', () => {
+      const fn = () => err(new TypeError('bad type'));
+      const throwing = toThrowable(fn);
+      expect(() => throwing()).toThrow(TypeError);
+    });
+
+    it('round-trips with wrap', () => {
+      const original = JSON.parse;
+      const safe = wrap(original);
+      const restored = toThrowable(safe);
+      expect(restored('{"a":1}')).toEqual({ a: 1 });
+      expect(() => restored('invalid')).toThrow(SyntaxError);
+    });
+  });
+
   describe('control helpers', () => {
     it('unwrapOrReturn returns value for Ok', () => {
       const value = unwrapOrReturn(ok(42), () => 'fallback');
@@ -979,4 +1012,124 @@ describe('Result', () => {
     });
   });
 
+  describe('fromSchema', () => {
+    const validSchema: StandardSchema<string> = {
+      '~standard': {
+        validate: (value) => typeof value === 'string'
+          ? { value }
+          : { issues: [{ message: 'Expected string' }] },
+      },
+    };
+
+    const asyncSchema: StandardSchema<number> = {
+      '~standard': {
+        validate: (value) => Promise.resolve(
+          typeof value === 'number'
+            ? { value }
+            : { issues: [{ message: 'Expected number' }] },
+        ),
+      },
+    };
+
+    it('returns Ok for valid sync schema', () => {
+      const result = fromSchema(validSchema, 'hello');
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe('hello');
+    });
+
+    it('returns Err with issues for invalid sync schema', () => {
+      const result = fromSchema(validSchema, 42);
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toEqual([{ message: 'Expected string' }]);
+    });
+
+    it('returns Ok for valid async schema', async () => {
+      const result = await fromSchema(asyncSchema, 42);
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(42);
+    });
+
+    it('returns Err for invalid async schema', async () => {
+      const result = await fromSchema(asyncSchema, 'hello');
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toEqual([{ message: 'Expected number' }]);
+    });
+  });
+
+  describe('gen', () => {
+    it('returns Ok for successful execution', () => {
+      const result = gen(function*($) {
+        const a = yield* $(ok(10));
+        const b = yield* $(ok(5));
+        return a + b;
+      });
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(15);
+    });
+
+    it('short-circuits on first Err', () => {
+      const result = gen(function*($) {
+        const a = yield* $(ok(10));
+        const b = yield* $(err('fail') as Result<number, string>);
+        const c = yield* $(ok(5));
+        return a + b + c;
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('fail');
+    });
+
+    it('propagates Err through chain', () => {
+      const parse = (s: string) => s === 'bad' ? err('parse error') : ok(Number(s));
+      const result = gen(function*($) {
+        const a = yield* $(parse('10'));
+        const b = yield* $(parse('bad'));
+        const c = yield* $(parse('5'));
+        return a + b + c;
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('parse error');
+    });
+
+    it('returns Ok for empty generator', () => {
+      const result = gen(function*() {
+        return 42;
+      });
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(42);
+    });
+  });
+
+  describe('genAsync', () => {
+    it('returns Ok for successful async execution', async () => {
+      const result = await genAsync(async function*($) {
+        const a = yield* $(ok(10));
+        const b = yield* $(await fromPromise(Promise.resolve(5)));
+        return a + b;
+      });
+      expect(isOk(result)).toBe(true);
+      expect(result).toBe(15);
+    });
+
+    it('short-circuits on first Err', async () => {
+      const result = await genAsync(async function*($) {
+        const a = yield* $(ok(10));
+        const b = yield* $(err('async fail') as Result<number, string>);
+        return a + b;
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('async fail');
+    });
+
+    it('handles rejected promises via fromPromise', async () => {
+      const result = await genAsync(async function*($) {
+        const a = yield* $(await fromPromise(Promise.resolve(10)));
+        const b = yield* $(await fromPromise(Promise.reject('boom')));
+        return a + b;
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('boom');
+    });
+  });
+
 });
+

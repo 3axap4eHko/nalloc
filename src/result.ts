@@ -60,6 +60,25 @@ export function wrap<A extends unknown[], R, E = unknown>(fn: (...args: A) => R,
 }
 
 /**
+ * Converts a Result-returning function into a throwing function.
+ * Inverse of wrap. Use at ecosystem boundaries where libraries expect exceptions
+ * (Express error handlers, Drizzle transactions, Passport.js, etc.).
+ * @param fn - A function that returns a Result
+ * @returns A new function that returns the Ok value or throws the Err error
+ * @example
+ * const findUser = (id: string): Result<User, NotFoundError> => { ... };
+ * const throwingFind = toThrowable(findUser);
+ * throwingFind('123') // returns User or throws NotFoundError
+ */
+export function toThrowable<A extends unknown[], R, E>(fn: (...args: A) => Result<R, E>): (...args: A) => R {
+  return (...args: A) => {
+    const result = fn(...args);
+    if (isErr(result)) throw result.error;
+    return result;
+  };
+}
+
+/**
  * Converts a Promise to a Result. Resolves to Ok if successful, Err on rejection.
  * @param promise - The promise to convert
  * @param onError - Optional error transformer
@@ -76,6 +95,43 @@ export async function fromPromise<T, E = unknown>(promise: Promise<T>, onError?:
   } catch (error) {
     return ERR(onError ? onError(error) : (error as E));
   }
+}
+
+/** A validation issue from a Standard Schema validator. */
+export interface SchemaIssue {
+  readonly message: string;
+  readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
+}
+
+/** Minimal Standard Schema v1 interface (duck-typed, no external dependency). */
+export interface StandardSchema<O = unknown> {
+  readonly '~standard': {
+    readonly validate: (value: unknown) => StandardSchemaResult<O> | Promise<StandardSchemaResult<O>>;
+  };
+}
+
+type StandardSchemaResult<O> = { readonly value: O; readonly issues?: undefined } | { readonly issues: ReadonlyArray<SchemaIssue> };
+
+function schemaResultToResult<O>(sr: StandardSchemaResult<O>): Result<O, readonly SchemaIssue[]> {
+  return sr.issues ? ERR(sr.issues) : (sr.value as Ok<O>);
+}
+
+/**
+ * Validates a value against a Standard Schema and returns a Result.
+ * Works with any Standard Schema v1 compliant library (Zod, Valibot, ArkType, etc.).
+ * Returns synchronously if the schema validates synchronously.
+ * @param schema - A Standard Schema v1 compliant schema
+ * @param value - The value to validate
+ * @returns Ok(parsed) if valid, Err(issues) if invalid
+ * @example
+ * import { z } from 'zod';
+ * const result = fromSchema(z.string().email(), input);
+ * // Result<string, readonly SchemaIssue[]>
+ */
+export function fromSchema<O>(schema: StandardSchema<O>, value: unknown): Result<O, readonly SchemaIssue[]> | Promise<Result<O, readonly SchemaIssue[]>> {
+  const sr = schema['~standard'].validate(value);
+  if (isThenable(sr)) return (sr as Promise<StandardSchemaResult<O>>).then(schemaResultToResult);
+  return schemaResultToResult(sr as StandardSchemaResult<O>);
 }
 
 /**
@@ -838,4 +894,52 @@ export async function safeTryAsync<T>(fn: () => Promise<T>): Promise<Result<T, u
   } catch (e) {
     return ERR(e);
   }
+}
+
+function* unwrapYield<T, E>(result: Result<T, E>): Generator<Err<E>, T> {
+  if (isErr(result)) {
+    yield result;
+    return undefined as never;
+  }
+  return result;
+}
+
+type Unwrapper = <T, E>(result: Result<T, E>) => Generator<Err<E>, T>;
+
+/**
+ * Generator-based do-notation for Result. Provides a `$` function that unwraps
+ * Results inside a generator, short-circuiting on the first Err.
+ * Preserves error types (unlike safeTry which erases to unknown).
+ * @param fn - Generator function receiving `$` unwrapper
+ * @returns Ok(return value) or the first Err encountered
+ * @example
+ * const result = gen(function*($) {
+ *   const a = yield* $(parseNumber('10'));
+ *   const b = yield* $(parseNumber('5'));
+ *   return a + b;
+ * }); // Result<number, ParseError>
+ */
+export function gen<E, T>(fn: ($: Unwrapper) => Generator<Err<E>, T>): Result<T, E> {
+  const iter = fn(unwrapYield);
+  const step = iter.next();
+  if (!step.done) return step.value;
+  return step.value as Ok<T>;
+}
+
+/**
+ * Async generator-based do-notation for Result. Like gen, but for async operations.
+ * @param fn - Async generator function receiving `$` unwrapper
+ * @returns Promise of Ok(return value) or the first Err encountered
+ * @example
+ * const result = await genAsync(async function*($) {
+ *   const user = yield* $(await fetchUser(id));
+ *   const posts = yield* $(await fetchPosts(user.id));
+ *   return { user, posts };
+ * }); // Promise<Result<{user, posts}, FetchError>>
+ */
+export async function genAsync<E, T>(fn: ($: Unwrapper) => AsyncGenerator<Err<E>, T>): Promise<Result<T, E>> {
+  const iter = fn(unwrapYield);
+  const step = await iter.next();
+  if (!step.done) return step.value;
+  return step.value as Ok<T>;
 }
