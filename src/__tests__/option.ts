@@ -38,7 +38,8 @@ import {
   satisfiesOption,
   filterMap,
   isNoneOr,
-  findMap
+  findMap,
+  tapNone
 } from '../option.js';
 import { ok, err, some, none } from '../types.js';
 
@@ -172,6 +173,27 @@ describe('Option', () => {
         called = true;
       });
       expect(isNone(result)).toBe(true);
+      expect(called).toBe(false);
+    });
+  });
+
+  describe('tapNone', () => {
+    it('runs for None and returns original', () => {
+      let called = false;
+      const result = tapNone(none, () => {
+        called = true;
+      });
+      expect(isNone(result)).toBe(true);
+      expect(called).toBe(true);
+    });
+
+    it('does not run for Some', () => {
+      let called = false;
+      const opt = of(5);
+      const result = tapNone(opt, () => {
+        called = true;
+      });
+      expect(result).toBe(opt);
       expect(called).toBe(false);
     });
   });

@@ -181,6 +181,24 @@ export function tap<T>(opt: Option<T>, fn: (value: T) => void): Option<T> {
 }
 
 /**
+ * Executes a side effect if None, then returns the original Option.
+ * @param opt - The Option to tap
+ * @param fn - Side effect function
+ * @returns The original Option unchanged
+ * @example
+ * tapNone(none, () => console.log('missing')) // logs 'missing', returns None
+ */
+export function tapNone<T>(opt: Some<T>, fn: () => void): Some<T>;
+export function tapNone(opt: None, fn: () => void): None;
+export function tapNone<T>(opt: Option<T>, fn: () => void): Option<T>;
+export function tapNone<T>(opt: Option<T>, fn: () => void): Option<T> {
+  if (isNone(opt)) {
+    fn();
+  }
+  return opt;
+}
+
+/**
  * Returns true if None, or if Some and predicate returns true.
  * @param opt - The Option to check
  * @param predicate - Test function

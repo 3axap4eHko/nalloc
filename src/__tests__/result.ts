@@ -33,6 +33,7 @@ import {
   isOkAnd,
   isErrAnd,
   tryCatch,
+  wrap,
   unwrapOrReturn,
   assertOk,
   assertErr,
@@ -598,6 +599,35 @@ describe('Result', () => {
       expect((result as any).error).toBe('boom');
     });
 
+  });
+
+  describe('wrap', () => {
+    it('wraps a function that succeeds', () => {
+      const safeParse = wrap(JSON.parse);
+      const result = safeParse('{"a":1}');
+      expect(isOk(result)).toBe(true);
+      expect(unwrap(result)).toEqual({ a: 1 });
+    });
+
+    it('wraps a function that throws', () => {
+      const safeParse = wrap(JSON.parse);
+      const result = safeParse('invalid');
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBeInstanceOf(SyntaxError);
+    });
+
+    it('preserves multi-arg signatures', () => {
+      const safeSlice = wrap((s: string, start: number, end: number) => s.slice(start, end));
+      const result = safeSlice('hello', 1, 3);
+      expect(unwrap(result)).toBe('el');
+    });
+
+    it('uses onError mapper', () => {
+      const safeParse = wrap(JSON.parse, (e) => (e as Error).message);
+      const result = safeParse('invalid');
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toContain('JSON');
+    });
   });
 
   describe('control helpers', () => {

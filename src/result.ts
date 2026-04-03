@@ -37,6 +37,29 @@ export function of<T>(fn: () => T): Result<T, unknown> {
 }
 
 /**
+ * Wraps a throwing function so it returns a Result instead.
+ * The wrapper is created once and reused, avoiding per-call closure allocation.
+ * @param fn - The function to wrap
+ * @param onError - Optional error transformer
+ * @returns A new function with the same signature that returns Result
+ * @example
+ * const safeParse = wrap(JSON.parse);
+ * safeParse('{"a":1}')  // Ok({a: 1})
+ * safeParse('invalid')  // Err(SyntaxError)
+ */
+export function wrap<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => Result<R, unknown>;
+export function wrap<A extends unknown[], R, E>(fn: (...args: A) => R, onError: (error: unknown) => E): (...args: A) => Result<R, E>;
+export function wrap<A extends unknown[], R, E = unknown>(fn: (...args: A) => R, onError?: (error: unknown) => E): (...args: A) => Result<R, E> {
+  return (...args: A) => {
+    try {
+      return fn(...args) as Ok<R>;
+    } catch (error) {
+      return ERR(onError ? onError(error) : (error as E));
+    }
+  };
+}
+
+/**
  * Converts a Promise to a Result. Resolves to Ok if successful, Err on rejection.
  * @param promise - The promise to convert
  * @param onError - Optional error transformer
@@ -500,7 +523,8 @@ export function partition<T, E>(results: Result<T, E>[]): [T[], E[]] {
   const oks: T[] = [];
   const errs: E[] = [];
 
-  for (const result of results) {
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
     if (isOk(result)) {
       oks.push(result);
     } else {
@@ -512,30 +536,32 @@ export function partition<T, E>(results: Result<T, E>[]): [T[], E[]] {
 }
 
 /**
- * Extracts all Ok values from an iterable of Results.
- * @param results - Iterable of Results
+ * Extracts all Ok values from an array of Results.
+ * @param results - Array of Results
  * @returns Array of Ok values
  * @example
  * filterOk([ok(1), err('a'), ok(2)]) // [1, 2]
  */
-export function filterOk<T, E>(results: Iterable<Result<T, E>>): T[] {
+export function filterOk<T, E>(results: Result<T, E>[]): T[] {
   const oks: T[] = [];
-  for (const result of results) {
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
     if (isOk(result)) oks.push(result);
   }
   return oks;
 }
 
 /**
- * Extracts all Err values from an iterable of Results.
- * @param results - Iterable of Results
+ * Extracts all Err values from an array of Results.
+ * @param results - Array of Results
  * @returns Array of error values
  * @example
  * filterErr([ok(1), err('a'), ok(2)]) // ['a']
  */
-export function filterErr<T, E>(results: Iterable<Result<T, E>>): E[] {
+export function filterErr<T, E>(results: Result<T, E>[]): E[] {
   const errs: E[] = [];
-  for (const result of results) {
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
     if (isErr(result)) errs.push(result.error);
   }
   return errs;
@@ -572,7 +598,8 @@ export function collect<T, E>(results: Result<T, E>[]): Result<T[], E> {
 export function collectAll<T, E>(results: Result<T, E>[]): Result<T[], E[]> {
   const oks: T[] = [];
   const errs: E[] = [];
-  for (const result of results) {
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
     if (isOk(result)) {
       oks.push(result);
     } else {
