@@ -32,7 +32,8 @@ assert<Equals<typeof noneValue, None>>;
 const optValue: Option<number> = Math.random() > 0 ? of(5) : none;
 if (isSome(optValue)) {
   assert<Equals<typeof optValue, Some<number>>>;
-  const directAccess: number = optValue;}
+  const _: number = optValue;
+}
 if (isNone(optValue)) {
   assert<Equals<typeof optValue, None>>;
 }

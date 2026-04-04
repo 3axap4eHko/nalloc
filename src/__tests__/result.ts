@@ -851,6 +851,16 @@ describe('Result', () => {
       expect(await result).toEqual([[1, 2], ['a']]);
     });
 
+    it('preserves input order with interleaved sync/async', async () => {
+      const result = await partitionMaybePromise([
+        Promise.resolve(ok(1)),
+        ok(2),
+        Promise.resolve(err('a')),
+        err('b'),
+      ]);
+      expect(result).toEqual([[1, 2], ['a', 'b']]);
+    });
+
     it('handles all async values', async () => {
       const result = await partitionMaybePromise([
         Promise.resolve(ok(1)),

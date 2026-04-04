@@ -6,12 +6,8 @@ import {
   mapErr,
   flatMap,
   bimap,
-  unwrap,
-  unwrapErr,
   unwrapOr,
   unwrapOrElse,
-  expect,
-  expectErr,
   and,
   or,
   orElse,
@@ -165,6 +161,12 @@ const tryResultTyped = of(() => {
 });
 assert<Equals<typeof tryResultTyped, Result<number, unknown>>>;
 
+const tryResultResult= of(() => {
+  if (Math.random() > 0.5) err("error");
+  return 42;
+});
+assert<Equals<typeof tryResultResult, Result<number, unknown>>>;
+
 
 const unwrapOrResult = unwrapOr(err<string>("error") as Result<number, string>, 42);
 assert<Equals<typeof unwrapOrResult, number>>;
@@ -205,6 +207,17 @@ const tryCatchTyped = tryCatch<number, string>(() => {
 }, error => (error as Error).message);
 assert<Equals<typeof tryCatchTyped, Result<number, string>>>;
 
+const tryCatchPassthroughErr = tryCatch(() => err('payload'));
+assert<Equals<typeof tryCatchPassthroughErr, Err<unknown>>>;
+
+const tryCatchPassthroughResult = tryCatch(() => Math.random() > 0.5 ? ok(1) : err('fail'));
+assert<Equals<typeof tryCatchPassthroughResult, Result<1, unknown>>>;
+
+const tryCatchPassthroughErrTyped = tryCatch(
+  () => err('payload'),
+  () => 0,
+);
+assert<Equals<typeof tryCatchPassthroughErrTyped, Err<string | number>>>;
 
 const unwrapFallback = unwrapOrReturn(ok(1) as Result<number, string>, () => 'fallback');
 assert<Equals<typeof unwrapFallback, number | 'fallback'>>;

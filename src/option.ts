@@ -4,7 +4,7 @@ import type { Some, None, Option, NoneValueType, ValueType, Result, Ok, Widen } 
 export type { Some, None, Option };
 export { isSome, isNone, of };
 
-const NONE_PAIR: readonly [None, None] = Object.freeze([NONE, NONE]) as readonly [None, None];
+const NONE_PAIR: readonly [None, None] = Object.freeze([NONE, NONE]);
 
 /**
  * Creates an Option from a nullable value with widened types.

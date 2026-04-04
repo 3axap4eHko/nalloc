@@ -17,8 +17,11 @@ const wrapErr = (error: unknown): Err<never> => ERR(error) as Err<never>;
  * tryCatch(() => JSON.parse('invalid'))     // Err(SyntaxError)
  * tryCatch(() => { throw 'oops' }, e => e)  // Err('oops')
  */
-export function tryCatch<T>(fn: () => T): Result<T, unknown>;
-export function tryCatch<T, E>(fn: () => T, onError: (error: unknown) => E): Result<T, E>;
+export function tryCatch<T>(fn: () => T): T extends Err<any> ? Err<unknown> : T extends Result<infer U, any> ? Result<U, unknown> : Result<T, unknown>;
+export function tryCatch<T, E>(
+  fn: () => T,
+  onError: (error: unknown) => E,
+): T extends Err<infer F> ? Err<F | E> : T extends Result<infer U, infer F> ? Result<U, F | E> : Result<T, E>;
 export function tryCatch<T, E = unknown>(fn: () => T, onError?: (error: unknown) => E): Result<T, E> {
   try {
     return fn() as Ok<T>;
@@ -32,8 +35,13 @@ export function tryCatch<T, E = unknown>(fn: () => T, onError?: (error: unknown)
  * @param fn - Function to execute
  * @returns Ok(result) if successful, Err(error) if thrown
  */
+export function of<T>(fn: () => T): T extends Err<any> ? Err<unknown> : T extends Result<infer U, any> ? Result<U, unknown> : Result<T, unknown>;
 export function of<T>(fn: () => T): Result<T, unknown> {
-  return tryCatch(fn);
+  try {
+    return fn() as Ok<T>;
+  } catch (error) {
+    return ERR(error);
+  }
 }
 
 /**
@@ -87,8 +95,8 @@ export function toThrowable<A extends unknown[], R, E>(fn: (...args: A) => Resul
  * await fromPromise(fetch('/api'))              // Ok(Response) or Err(unknown)
  * await fromPromise(fetch('/api'), e => String(e)) // Ok(Response) or Err(string)
  */
-export async function fromPromise<T>(promise: Promise<T>): Promise<Result<T, unknown>>;
-export async function fromPromise<T, E>(promise: Promise<T>, onError: (error: unknown) => E): Promise<Result<T, E>>;
+export async function fromPromise<T>(promise: Promise<Exclude<T, Err<any>>>): Promise<Result<T, unknown>>;
+export async function fromPromise<T, E>(promise: Promise<Exclude<T, Err<any>>>, onError: (error: unknown) => E): Promise<Result<T, E>>;
 export async function fromPromise<T, E = unknown>(promise: Promise<T>, onError?: (error: unknown) => E): Promise<Result<T, E>> {
   try {
     return (await promise) as Ok<T>;
@@ -130,8 +138,8 @@ function schemaResultToResult<O>(sr: StandardSchemaResult<O>): Result<O, readonl
  */
 export function fromSchema<O>(schema: StandardSchema<O>, value: unknown): Result<O, readonly SchemaIssue[]> | Promise<Result<O, readonly SchemaIssue[]>> {
   const sr = schema['~standard'].validate(value);
-  if (isThenable(sr)) return (sr as Promise<StandardSchemaResult<O>>).then(schemaResultToResult);
-  return schemaResultToResult(sr as StandardSchemaResult<O>);
+  if (isThenable(sr)) return sr.then(schemaResultToResult);
+  return schemaResultToResult(sr);
 }
 
 /**
@@ -736,11 +744,6 @@ export function isErrAnd<T, E>(result: Result<T, E>, predicate: (error: E) => bo
   return isErr(result) && predicate(result.error);
 }
 
-export function settledToResult<T, E>(result: PromiseSettledResult<Result<T, E>>): Result<T, E> {
-  if (result.status === 'fulfilled') return result.value;
-  return ERR(result.reason);
-}
-
 /**
  * Partitions an async iterable of Results.
  * @param results - Iterable of Promise Results
@@ -751,7 +754,26 @@ export function settledToResult<T, E>(result: PromiseSettledResult<Result<T, E>>
  */
 export async function partitionAsync<T, E>(promises: Iterable<Promise<Result<T, E>>>): Promise<[Widen<T>[], WidenNever<E>[]]> {
   const settled = await Promise.allSettled(promises);
-  return partition(settled.map(settledToResult)) as [Widen<T>[], WidenNever<E>[]];
+  const oks: Widen<T>[] = [];
+  const errs: WidenNever<E>[] = [];
+
+  for (let i = 0; i < settled.length; i++) {
+    const entry = settled[i];
+
+    if (entry.status === 'rejected') {
+      errs.push(entry.reason as WidenNever<E>);
+      continue;
+    }
+
+    const result = entry.value;
+    if (isOk(result)) {
+      oks.push(result as Widen<T>);
+    } else {
+      errs.push(result.error as WidenNever<E>);
+    }
+  }
+
+  return [oks, errs];
 }
 
 /**
@@ -797,31 +819,21 @@ export async function partitionMaybePromiseAsync<T, E>(
   errs: WidenNever<E>[],
   startIndex: number = 0,
 ): Promise<[Widen<T>[], WidenNever<E>[]]> {
-  const suffixLength = values.length - startIndex;
-  const pendingPromises: Promise<Result<T, E>>[] = [];
+  const remaining = values.length - startIndex;
+  const promises = new Array<Promise<Result<T, E>>>(remaining).fill(0 as never);
 
-  for (let i = 0; i < suffixLength; i++) {
+  for (let i = 0; i < remaining; i++) {
     const value = values[startIndex + i];
-    if (isThenable(value)) {
-      pendingPromises.push(Promise.resolve(value).then(identity, wrapErr));
-    } else {
-      if (isOk(value)) {
-        oks.push(value as Widen<T>);
-      } else {
-        errs.push((value as Err<WidenNever<E>>).error);
-      }
-    }
+    promises[i] = isThenable(value) ? Promise.resolve(value).then(identity, wrapErr) : Promise.resolve(value);
   }
 
-  if (pendingPromises.length > 0) {
-    const resolved = await Promise.all(pendingPromises);
-    for (let i = 0; i < resolved.length; i++) {
-      const result = resolved[i];
-      if (isOk(result)) {
-        oks.push(result as Widen<T>);
-      } else {
-        errs.push((result as Err<WidenNever<E>>).error);
-      }
+  const resolved = await Promise.all(promises);
+  for (let i = 0; i < resolved.length; i++) {
+    const result = resolved[i];
+    if (isOk(result)) {
+      oks.push(result as Widen<T>);
+    } else {
+      errs.push((result as Err<WidenNever<E>>).error);
     }
   }
 
