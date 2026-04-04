@@ -44,7 +44,7 @@ npm install nalloc
 ## Quick start
 
 ```ts
-import { Option, Result, ok, err, none, safeTry, unwrap } from 'nalloc';
+import { Option, Result, ok, err, none, pipe, gen } from 'nalloc';
 
 // Option: the value IS the Option
 const port = Option.fromNullable(process.env.PORT);
@@ -58,12 +58,19 @@ const data = Result.match(
   error => ({ fallback: true })
 );
 
-// safeTry: Rust-like ? operator
-const result = safeTry(() => {
-  const a = unwrap(parseNumber('10'));
-  const b = unwrap(parseNumber('5'));
+// gen: Rust-like ? operator with type-safe errors
+const result = gen(function*($) {
+  const a = yield* $(parseNumber('10'));
+  const b = yield* $(parseNumber('5'));
   return a + b;
-}); // Ok(15) or Err(...)
+}); // Result<number, ParseError>
+
+// pipe: left-to-right composition
+const userId = pipe(
+  Result.tryCatch(() => JSON.parse(raw)),
+  r => Result.map(r, data => data.userId),
+  r => Result.unwrapOr(r, 0),
+);
 ```
 
 ## How it works
@@ -103,8 +110,8 @@ import * as O from 'fp-ts/Option';
 pipe(O.some(42), O.map(x => x * 2));
 
 // nalloc - simpler, faster
-import { Option } from 'nalloc';
-Option.map(42, x => x * 2);               // value IS the Option
+import { Option, pipe } from 'nalloc';
+pipe(42, v => Option.map(v, x => x * 2)); // built-in pipe, value IS the Option
 ```
 
 ### From oxide.ts
@@ -146,7 +153,7 @@ Option.unwrapOr(42, 0);                  // value IS the Option
 The API mirrors Rust's `Option` and `Result`:
 
 ```ts
-import { Option, Result, ok, err, none, safeTry, unwrap } from 'nalloc';
+import { Option, Result, ok, err, none, gen } from 'nalloc';
 
 // Rust: Some(42).map(|x| x * 2)
 Option.map(42, x => x * 2);
@@ -157,9 +164,9 @@ Result.andThen(ok(42), x => x > 0 ? ok(x) : err('negative'));
 // Rust: result.unwrap_or(0)
 Result.unwrapOr(result, 0);
 
-// Rust: let value = try!(get_value())  /  let value = get_value()?
-const value = safeTry(() => {
-  const a = unwrap(getValue());
+// Rust: let value = get_value()?
+const value = gen(function*($) {
+  const a = yield* $(getValue());
   return a + 1;
 });
 ```
@@ -205,7 +212,7 @@ const maybeUser = await Option.fromPromise(fetchUserById(id));
 A `Result<T, E>` is either `Ok<T>` (the value itself) or `Err<E>` (a wrapper).
 
 ```ts
-import { Result, ok, err, safeTry, safeTryAsync, unwrap } from 'nalloc';
+import { Result, ok, err, gen, genAsync, pipe } from 'nalloc';
 
 // Wrap throwing functions
 const parsed = Result.tryCatch(
@@ -213,24 +220,35 @@ const parsed = Result.tryCatch(
   e => 'invalid json'
 );
 
-// safeTry: Rust-like ? operator for imperative error handling
-const result = safeTry(() => {
-  const config = unwrap(parseConfig(raw));
-  const db = unwrap(connectDb(config.url));
+// gen: Rust-like ? operator with preserved error types
+const result = gen(function*($) {
+  const config = yield* $(parseConfig(raw));
+  const db = yield* $(connectDb(config.url));
   return db.query('SELECT 1');
-});
+}); // Result<QueryResult, ConfigError | DbError>
 
-// Async safeTry
-const data = await safeTryAsync(async () => {
-  const res = unwrap(await fetchUser(id));
-  const posts = unwrap(await fetchPosts(res.id));
+// Async gen
+const data = await genAsync(async function*($) {
+  const res = yield* $(await Result.fromPromise(fetchUser(id)));
+  const posts = yield* $(await Result.fromPromise(fetchPosts(res.id)));
   return { user: res, posts };
-});
+}); // Promise<Result<{user, posts}, unknown>>
 
-// Transform
-const userId = Result.map(parsed, data => data.userId);
-const validated = Result.flatMap(userId, id =>
-  id > 0 ? ok(id) : err('invalid id')
+// wrap / toThrowable: ecosystem boundaries
+const safeParse = Result.wrap(JSON.parse);            // throwing -> Result
+safeParse('{"a":1}');                                 // Ok({a: 1})
+const throwingFind = Result.toThrowable(findUser);    // Result -> throwing
+throwingFind('123');                                  // returns User or throws
+
+// Standard Schema validation (Zod, Valibot, ArkType, etc.)
+const validated = Result.fromSchema(userSchema, input);
+// Result<User, readonly SchemaIssue[]>
+
+// Transform with pipe
+const userId = pipe(
+  parsed,
+  r => Result.map(r, data => data.userId),
+  r => Result.flatMap(r, id => id > 0 ? ok(id) : err('invalid id')),
 );
 
 // Pattern match
@@ -289,6 +307,7 @@ Iter.tryForEach(items, item => processItem(item));
 | `flatMap(opt, fn)` | Chain Option-returning functions |
 | `andThen(opt, fn)` | Alias for flatMap |
 | `tap(opt, fn)` | Side effect on Some, return original |
+| `tapNone(opt, fn)` | Side effect on None, return original |
 | `filter(opt, predicate)` | Keep Some if predicate passes |
 | `match(opt, onSome, onNone)` | Pattern match |
 | `unwrap(opt)` | Extract or throw |
@@ -327,6 +346,11 @@ Iter.tryForEach(items, item => processItem(item));
 | `tryCatch(fn, onError?)` | Wrap throwing function |
 | `tryCatchMaybePromise(fn, onError?)` | Wrap sync-or-async, preserving sync |
 | `of(fn)` | Alias for tryCatch (no error mapper) |
+| `wrap(fn, onError?)` | Wrap throwing function once, reuse |
+| `toThrowable(fn)` | Inverse of wrap: Result-returning to throwing |
+| `fromSchema(schema, value)` | Validate via Standard Schema v1 |
+| `gen(fn)` | Generator do-notation with typed errors |
+| `genAsync(fn)` | Async generator do-notation |
 | `safeTry(fn)` | Imperative error handling with unwrap |
 | `safeTryAsync(fn)` | Async version of safeTry |
 | `unwrap(result)` | Extract Ok or throw error value |
@@ -382,6 +406,12 @@ Iter.tryForEach(items, item => processItem(item));
 | `tryFold(source, init, fn)` | Fold with early exit on Err |
 | `tryForEach(source, fn)` | Iterate with early exit on Err |
 
+### Utilities
+
+| Function | Description |
+|----------|-------------|
+| `pipe(value, ...fns)` | Thread value through functions left-to-right |
+
 ## Comparison
 
 | Feature | nalloc | neverthrow | fp-ts | oxide.ts | ts-results |
@@ -393,7 +423,10 @@ Iter.tryForEach(items, item => processItem(item));
 | Async support | Yes | Yes | Yes | Limited | No |
 | Tree-shakeable | Yes | Yes | Yes | Yes | Yes |
 | Iterator utilities | Yes | No | Yes | No | No |
-| safeTry (? operator) | Yes | Yes | No | No | No |
+| gen (? operator) | Yes | Yes | No | No | No |
+| pipe | Yes | No | Yes | No | No |
+| Schema validation | Yes | No | No | No | No |
+| Ecosystem interop | Yes | No | No | No | No |
 
 ## Alternatives
 
