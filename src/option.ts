@@ -83,7 +83,7 @@ export function assertSome<T>(opt: Option<T>, message?: string): asserts opt is 
  * satisfiesOption(value); // Compiles, but no runtime check
  * // value is now typed as Option<number>
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// oxlint-disable-next-line no-unused-vars
 export function satisfiesOption<T>(value: Option<T> | T): asserts value is Option<T> {}
 
 /**

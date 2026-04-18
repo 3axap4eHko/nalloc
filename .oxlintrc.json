@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [
+    "docs",
+    "build",
+    "coverage",
+    "node_modules",
+    "scripts",
+    "**/*.tmp.ts",
+    "src/__tests__",
+    "**/*.js",
+    "**/*.cjs",
+    "**/*.mjs",
+    "benchmarks",
+    "tmp",
+    "vitest.config.ts"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }],
+    "typescript/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }],
+    "typescript/await-thenable": "warn",
+    "typescript/no-floating-promises": "warn",
+    "typescript/ban-ts-comment": "warn",
+    "unicorn/no-new-array": "off"
+  }
+}
