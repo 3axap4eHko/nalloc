@@ -96,6 +96,24 @@ describe('Iter', () => {
       expect(returned).toBe(true);
     });
 
+    it('return() after exhaustion is a no-op', () => {
+      let returnCalls = 0;
+      const iter: Iterable<number> = {
+        [Symbol.iterator]: () => {
+          let i = 0;
+          return {
+            next() { return i++ < 1 ? { value: i, done: false } : { value: undefined as unknown as number, done: true }; },
+            return() { returnCalls++; return { value: undefined, done: true }; },
+          };
+        },
+      };
+      const gen = safeIter(iter);
+      expect([...gen]).toHaveLength(1);
+      const final = gen.return!(undefined as never);
+      expect(final.done).toBe(true);
+      expect(returnCalls).toBe(0);
+    });
+
     it('yields values then stops on throw', () => {
       function* twoThenThrow() {
         yield 1;

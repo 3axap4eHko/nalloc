@@ -16,9 +16,11 @@ export type {
   MaybePromise,
 } from './types.js';
 export { safeTry, safeTryAsync, unwrap, gen, genAsync } from './result.js';
+export type { NonEmptyArray, ReadonlyNonEmptyArray } from './nonempty.js';
 export * as Option from './option.js';
 export * as Result from './result.js';
 export * as Iter from './iter.js';
+export * as NonEmpty from './nonempty.js';
 
 /**
  * Threads a value through a sequence of unary functions, left to right.

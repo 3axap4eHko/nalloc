@@ -77,15 +77,14 @@ export function assertSome<T>(opt: Option<T>, message?: string): asserts opt is 
  * runtime to preserve zero-allocation semantics. Use assertSome() if you
  * need runtime validation that a value is Some.
  *
- * @param _ - The value to assert as Option (not validated at runtime)
+ * @param value - The value to assert as Option (not validated at runtime)
  * @example
  * const value: number | null = getValue();
  * satisfiesOption(value); // Compiles, but no runtime check
  * // value is now typed as Option<number>
  */
-export function satisfiesOption<T>(_: Option<T> | T): asserts _ is Option<T> {
-  // Compile-time only - no runtime validation to preserve zero-allocation semantics.
-}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function satisfiesOption<T>(value: Option<T> | T): asserts value is Option<T> {}
 
 /**
  * Maps and filters an iterable, collecting only Some values.

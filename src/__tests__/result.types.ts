@@ -138,7 +138,7 @@ const collected = collect(results);
 assert<Equals<typeof collected, Result<number[], string>>>;
 
 const collectedAll = collectAll(results);
-assert<Equals<typeof collectedAll, Result<number[], string[]>>>;
+assert<Equals<typeof collectedAll, Result<number[], [string, ...string[]]>>>;
 
 const transposed = transpose(ok(42 as Option<number>) as Result<Option<number>, string>);
 assert<Equals<typeof transposed, Option<Result<number, string>>>>;
@@ -234,7 +234,7 @@ const allResult = all([ok(1), ok(2)]);
 assert<Equals<typeof allResult, Result<readonly number[], unknown>>>;
 
 const anyResult = any([err('a'), ok(3)]);
-assert<Equals<typeof anyResult, Result<number, string[]>>>;
+assert<Equals<typeof anyResult, Result<number, [string, ...string[]]>>>;
 
 const partitionAsyncResult = partitionAsync([Promise.resolve(ok(1)), Promise.resolve(err('a'))]);
 assert<Equals<typeof partitionAsyncResult, Promise<[number[], string[]]>>>;

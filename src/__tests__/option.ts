@@ -426,6 +426,10 @@ describe('Option', () => {
     it('returns false for None', () => {
       expect(contains(none, 42)).toBe(false);
     });
+
+    it('treats NaN as equal to NaN', () => {
+      expect(contains(of(NaN), NaN)).toBe(true);
+    });
   });
 
   describe('isSomeAnd', () => {

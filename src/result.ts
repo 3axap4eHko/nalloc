@@ -1,5 +1,6 @@
 import { err as ERR, isOk, isErr, isSome, isNone, NONE, optionOf, isThenable } from './types.js';
 import type { Ok, Err, Result, Option, Widen, WidenNever, MaybePromise } from './types.js';
+import type { NonEmptyArray } from './nonempty.js';
 
 export type { Ok, Err, Result };
 export { isOk, isErr };
@@ -659,7 +660,7 @@ export function collect<T, E>(results: Result<T, E>[]): Result<T[], E> {
  * collectAll([ok(1), ok(2)])           // Ok([1, 2])
  * collectAll([ok(1), err('a'), err('b')]) // Err(['a', 'b'])
  */
-export function collectAll<T, E>(results: Result<T, E>[]): Result<T[], E[]> {
+export function collectAll<T, E>(results: Result<T, E>[]): Result<T[], NonEmptyArray<E>> {
   const oks: T[] = [];
   const errs: E[] = [];
   for (let i = 0; i < results.length; i++) {
@@ -670,7 +671,7 @@ export function collectAll<T, E>(results: Result<T, E>[]): Result<T[], E[]> {
       errs.push(result.error);
     }
   }
-  return errs.length > 0 ? ERR(errs) : (oks as Ok<T[]>);
+  return errs.length > 0 ? ERR(errs as NonEmptyArray<E>) : (oks as Ok<T[]>);
 }
 
 /**
@@ -690,14 +691,14 @@ export function all<T, E>(results: Result<T, E>[]): Result<readonly Widen<T>[], 
  * any([err('a'), ok(1), err('b')]) // Ok(1)
  * any([err('a'), err('b')])        // Err(['a', 'b'])
  */
-export function any<T, E>(results: Result<T, E>[]): Result<Widen<T>, WidenNever<E>[]> {
+export function any<T, E>(results: Result<T, E>[]): Result<Widen<T>, NonEmptyArray<WidenNever<E>>> {
   const errors: WidenNever<E>[] = [];
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (isOk(result)) return result as Ok<Widen<T>>;
     errors.push((result as Err<WidenNever<E>>).error);
   }
-  return ERR(errors);
+  return ERR(errors as NonEmptyArray<WidenNever<E>>);
 }
 
 /**
@@ -909,11 +910,8 @@ export async function safeTryAsync<T>(fn: () => Promise<T>): Promise<Result<T, u
 }
 
 function* unwrapYield<T, E>(result: Result<T, E>): Generator<Err<E>, T> {
-  if (isErr(result)) {
-    yield result;
-    return undefined as never;
-  }
-  return result;
+  if (isErr(result)) yield result;
+  return result as T;
 }
 
 type Unwrapper = <T, E>(result: Result<T, E>) => Generator<Err<E>, T>;

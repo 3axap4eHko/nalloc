@@ -295,6 +295,34 @@ const sum = Iter.tryFold([1, 2, 3], 0, (acc, n) => ok(acc + n));
 Iter.tryForEach(items, item => processItem(item));
 ```
 
+## NonEmpty
+
+Proves at the type level that an array has at least one element. The runtime
+value is a plain array - no wrapper, no class, no cloning. `fromArray` returns
+the original array value when it is non-empty.
+
+```ts
+import { NonEmpty, Option } from 'nalloc';
+
+NonEmpty.isNonEmpty([])         // false
+NonEmpty.isNonEmpty([1])        // true, narrows to ReadonlyNonEmptyArray<number>
+
+const values: readonly number[] = loadValues();
+if (NonEmpty.isNonEmpty(values)) {
+  const first: number = values[0]; // typed, no undefined
+}
+
+// fromArray returns None for [] and Some(values) otherwise
+const opt = NonEmpty.fromArray(values); // Option<ReadonlyNonEmptyArray<number>>
+```
+
+Two Result combinators now carry the non-empty guarantee in their error type:
+
+- `Result.collectAll(results)` returns `Result<T[], NonEmptyArray<E>>` - if the
+  result is `Err`, the error array is guaranteed to contain at least one entry.
+- `Result.any(results)` returns `Result<Widen<T>, NonEmptyArray<WidenNever<E>>>`
+  for the same reason: `any` only fails when every input failed.
+
 ## API Reference
 
 ### Option
