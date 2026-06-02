@@ -691,7 +691,7 @@ export function all<T, E>(results: Result<T, E>[]): Result<readonly Widen<T>[], 
  * any([err('a'), ok(1), err('b')]) // Ok(1)
  * any([err('a'), err('b')])        // Err(['a', 'b'])
  */
-export function any<T, E>(results: Result<T, E>[]): Result<Widen<T>, NonEmptyArray<WidenNever<E>>> {
+export function any<T, E>(results: NonEmptyArray<Result<T, E>>): Result<Widen<T>, NonEmptyArray<WidenNever<E>>> {
   const errors: WidenNever<E>[] = [];
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
@@ -712,7 +712,7 @@ export function any<T, E>(results: Result<T, E>[]): Result<Widen<T>, NonEmptyArr
  */
 export function transpose<T, E>(result: Result<Option<T>, E>): Option<Result<T, E>> {
   if (isErr(result)) {
-    return ERR(result.error) as Option<Result<T, E>>;
+    return result as Option<Result<T, E>>;
   }
   const opt = result as Option<T>;
   return isNone(opt) ? NONE : (opt as unknown as Ok<T> as Option<Result<T, E>>);
@@ -932,7 +932,11 @@ type Unwrapper = <T, E>(result: Result<T, E>) => Generator<Err<E>, T>;
 export function gen<E, T>(fn: ($: Unwrapper) => Generator<Err<E>, T>): Result<T, E> {
   const iter = fn(unwrapYield);
   const step = iter.next();
-  if (!step.done) return step.value;
+  if (!step.done) {
+    // short-circuit abandons the generator mid-body; resume it so try/finally cleanup runs
+    iter.return(undefined as never);
+    return step.value;
+  }
   return step.value as Ok<T>;
 }
 
@@ -950,6 +954,10 @@ export function gen<E, T>(fn: ($: Unwrapper) => Generator<Err<E>, T>): Result<T,
 export async function genAsync<E, T>(fn: ($: Unwrapper) => AsyncGenerator<Err<E>, T>): Promise<Result<T, E>> {
   const iter = fn(unwrapYield);
   const step = await iter.next();
-  if (!step.done) return step.value;
+  if (!step.done) {
+    // short-circuit abandons the generator mid-body; resume it so try/finally cleanup runs
+    await iter.return(undefined as never);
+    return step.value;
+  }
   return step.value as Ok<T>;
 }

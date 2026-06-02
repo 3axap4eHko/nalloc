@@ -748,12 +748,6 @@ describe('Result', () => {
       expect(isOk(outcome)).toBe(true);
       expect(unwrap(outcome)).toBe(3);
     });
-
-    it('any returns empty errors for empty array', () => {
-      const outcome = any([]);
-      expect(isErr(outcome)).toBe(true);
-      expect((outcome as any).error).toEqual([]);
-    });
   });
 
   describe('tryCatchMaybePromise', () => {
@@ -1107,6 +1101,22 @@ describe('Result', () => {
       expect(isOk(result)).toBe(true);
       expect(result).toBe(42);
     });
+
+    it('runs try/finally cleanup when short-circuiting on Err', () => {
+      let cleanedUp = false;
+      const result = gen(function*($) {
+        try {
+          const a = yield* $(ok(10));
+          const b = yield* $(err('fail') as Result<number, string>);
+          return a + b;
+        } finally {
+          cleanedUp = true;
+        }
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('fail');
+      expect(cleanedUp).toBe(true);
+    });
   });
 
   describe('genAsync', () => {
@@ -1138,6 +1148,22 @@ describe('Result', () => {
       });
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('boom');
+    });
+
+    it('runs try/finally cleanup when short-circuiting on Err', async () => {
+      let cleanedUp = false;
+      const result = await genAsync(async function*($) {
+        try {
+          const a = yield* $(ok(10));
+          const b = yield* $(err('async fail') as Result<number, string>);
+          return a + b;
+        } finally {
+          cleanedUp = true;
+        }
+      });
+      expect(isErr(result)).toBe(true);
+      expect((result as any).error).toBe('async fail');
+      expect(cleanedUp).toBe(true);
     });
   });
 

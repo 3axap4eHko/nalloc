@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "include": [
+    "src/__tests__/nonempty.types.ts",
     "src/__tests__/option.types.ts",
     "src/__tests__/result.types.ts"
   ],
