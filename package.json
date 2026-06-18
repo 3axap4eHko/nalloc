@@ -1,7 +1,7 @@
 {
   "name": "nalloc",
   "description": "Rust-like Option and Result for TypeScript with near-zero allocations for extreme performance",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "types": "build/index.d.ts",
   "main": "build/index.cjs",
