@@ -21,6 +21,7 @@ export * as Option from './option.js';
 export * as Result from './result.js';
 export * as Iter from './iter.js';
 export * as NonEmpty from './nonempty.js';
+export * as Schema from './schema.js';
 
 /**
  * Threads a value through a sequence of unary functions, left to right.

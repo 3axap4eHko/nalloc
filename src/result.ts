@@ -106,43 +106,6 @@ export async function fromPromise<T, E = unknown>(promise: Promise<T>, onError?:
   }
 }
 
-/** A validation issue from a Standard Schema validator. */
-export interface SchemaIssue {
-  readonly message: string;
-  readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
-}
-
-/** Minimal Standard Schema v1 interface (duck-typed, no external dependency). */
-export interface StandardSchema<O = unknown> {
-  readonly '~standard': {
-    readonly validate: (value: unknown) => StandardSchemaResult<O> | Promise<StandardSchemaResult<O>>;
-  };
-}
-
-type StandardSchemaResult<O> = { readonly value: O; readonly issues?: undefined } | { readonly issues: ReadonlyArray<SchemaIssue> };
-
-function schemaResultToResult<O>(sr: StandardSchemaResult<O>): Result<O, readonly SchemaIssue[]> {
-  return sr.issues ? ERR(sr.issues) : (sr.value as Ok<O>);
-}
-
-/**
- * Validates a value against a Standard Schema and returns a Result.
- * Works with any Standard Schema v1 compliant library (Zod, Valibot, ArkType, etc.).
- * Returns synchronously if the schema validates synchronously.
- * @param schema - A Standard Schema v1 compliant schema
- * @param value - The value to validate
- * @returns Ok(parsed) if valid, Err(issues) if invalid
- * @example
- * import { z } from 'zod';
- * const result = fromSchema(z.string().email(), input);
- * // Result<string, readonly SchemaIssue[]>
- */
-export function fromSchema<O>(schema: StandardSchema<O>, value: unknown): Result<O, readonly SchemaIssue[]> | Promise<Result<O, readonly SchemaIssue[]>> {
-  const sr = schema['~standard'].validate(value);
-  if (isThenable(sr)) return sr.then(schemaResultToResult);
-  return schemaResultToResult(sr);
-}
-
 /**
  * Executes a function that may return sync or async, preserving sync execution when possible.
  * @param fn - Function that may return T or Promise<T>

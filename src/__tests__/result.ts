@@ -49,11 +49,9 @@ import {
   safeTry,
   safeTryAsync,
   fromPromise,
-  fromSchema,
   gen,
-  genAsync
+  genAsync,
 } from '../result.js';
-import type { StandardSchema } from '../result.js';
 import { ok, err, isOk, isErr, optionOf as optOf, none } from '../types.js';
 
 describe('Result', () => {
@@ -86,7 +84,6 @@ describe('Result', () => {
       expect(isErr(failure)).toBe(true);
       expect((failure as any).error.message).toBe('failed');
     });
-
   });
 
   describe('type guards', () => {
@@ -127,7 +124,7 @@ describe('Result', () => {
 
   describe('map', () => {
     it('maps Ok value', () => {
-      const result = map(ok(2), x => x * 3);
+      const result = map(ok(2), (x) => x * 3);
       expect(unwrap(result)).toBe(6);
     });
 
@@ -140,7 +137,7 @@ describe('Result', () => {
 
   describe('mapErr', () => {
     it('maps Err value', () => {
-      const result = mapErr(err('error'), e => e.toUpperCase());
+      const result = mapErr(err('error'), (e) => e.toUpperCase());
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('ERROR');
     });
@@ -154,12 +151,12 @@ describe('Result', () => {
 
   describe('flatMap', () => {
     it('flatMaps Ok value', () => {
-      const result = flatMap(ok(2), x => ok(x * 3));
+      const result = flatMap(ok(2), (x) => ok(x * 3));
       expect(unwrap(result)).toBe(6);
     });
 
     it('can return Err from mapper', () => {
-      const result = flatMap(ok(2), x => err(`error: ${x}`));
+      const result = flatMap(ok(2), (x) => err(`error: ${x}`));
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('error: 2');
     });
@@ -173,7 +170,7 @@ describe('Result', () => {
 
   describe('andThen', () => {
     it('aliases flatMap for Ok', () => {
-      const result = andThen(ok(2), x => ok(x * 4));
+      const result = andThen(ok(2), (x) => ok(x * 4));
       expect(unwrap(result)).toBe(8);
     });
 
@@ -188,7 +185,7 @@ describe('Result', () => {
     it('runs for Ok and returns original', () => {
       let seen = 0;
       const res = ok(7);
-      const out = tap(res, value => {
+      const out = tap(res, (value) => {
         seen = value;
       });
       expect(out).toBe(res);
@@ -209,7 +206,7 @@ describe('Result', () => {
     it('runs for Err and returns original', () => {
       let seen = '';
       const res = err('nope');
-      const out = tapErr(res, error => {
+      const out = tapErr(res, (error) => {
         seen = error;
       });
       expect(out).toBe(res);
@@ -228,12 +225,20 @@ describe('Result', () => {
 
   describe('bimap', () => {
     it('maps Ok value', () => {
-      const result = bimap(ok(2), x => x * 3, e => e);
+      const result = bimap(
+        ok(2),
+        (x) => x * 3,
+        (e) => e,
+      );
       expect(unwrap(result)).toBe(6);
     });
 
     it('maps Err value', () => {
-      const result = bimap(err('error'), (x: number) => x * 3, e => e.toUpperCase());
+      const result = bimap(
+        err('error'),
+        (x: number) => x * 3,
+        (e) => e.toUpperCase(),
+      );
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('ERROR');
     });
@@ -247,7 +252,11 @@ describe('Result', () => {
     it('throws error value for Err', () => {
       const e = err('error');
       let caught: unknown;
-      try { unwrap(e); } catch (x) { caught = x; }
+      try {
+        unwrap(e);
+      } catch (x) {
+        caught = x;
+      }
       expect(caught).toBe('error');
     });
   });
@@ -279,7 +288,7 @@ describe('Result', () => {
 
     it('calls function for Err', () => {
       let called = false;
-      const result = unwrapOrElse(err('error'), e => {
+      const result = unwrapOrElse(err('error'), (e) => {
         called = true;
         expect(e).toBe('error');
         return 99;
@@ -291,7 +300,7 @@ describe('Result', () => {
 
   describe('mapOr', () => {
     it('maps Ok value', () => {
-      const result = mapOr(ok(2), 10, x => x * 3);
+      const result = mapOr(ok(2), 10, (x) => x * 3);
       expect(result).toBe(6);
     });
 
@@ -303,16 +312,24 @@ describe('Result', () => {
 
   describe('mapOrElse', () => {
     it('maps Ok value', () => {
-      const result = mapOrElse(ok(2), () => 10, x => x * 3);
+      const result = mapOrElse(
+        ok(2),
+        () => 10,
+        (x) => x * 3,
+      );
       expect(result).toBe(6);
     });
 
     it('returns default for Err', () => {
       let called = false;
-      const result = mapOrElse(err('error'), () => {
-        called = true;
-        return 10;
-      }, (x: number) => x * 3);
+      const result = mapOrElse(
+        err('error'),
+        () => {
+          called = true;
+          return 10;
+        },
+        (x: number) => x * 3,
+      );
       expect(result).toBe(10);
       expect(called).toBe(true);
     });
@@ -383,7 +400,7 @@ describe('Result', () => {
 
     it('calls function if Err', () => {
       let called = false;
-      const result = orElse(err('error'), e => {
+      const result = orElse(err('error'), (e) => {
         called = true;
         expect(e).toBe('error');
         return ok(2);
@@ -462,7 +479,6 @@ describe('Result', () => {
       expect(unwrap(result)).toBe(42);
     });
 
-
     it('returns outer Err', () => {
       const result = flatten(err('outer error'));
       expect(isErr(result)).toBe(true);
@@ -474,8 +490,8 @@ describe('Result', () => {
     it('calls ok branch for Ok', () => {
       const result = match(
         ok(42),
-        x => `value: ${x}`,
-        e => `error: ${e}`,
+        (x) => `value: ${x}`,
+        (e) => `error: ${e}`,
       );
       expect(result).toBe('value: 42');
     });
@@ -484,7 +500,7 @@ describe('Result', () => {
       const result = match(
         err('failed'),
         (x: number) => `value: ${x}`,
-        e => `error: ${e}`,
+        (e) => `error: ${e}`,
       );
       expect(result).toBe('error: failed');
     });
@@ -566,11 +582,11 @@ describe('Result', () => {
 
   describe('isOkAnd', () => {
     it('returns true if Ok and predicate true', () => {
-      expect(isOkAnd(ok(5), x => x > 3)).toBe(true);
+      expect(isOkAnd(ok(5), (x) => x > 3)).toBe(true);
     });
 
     it('returns false if Ok and predicate false', () => {
-      expect(isOkAnd(ok(2), x => x > 3)).toBe(false);
+      expect(isOkAnd(ok(2), (x) => x > 3)).toBe(false);
     });
 
     it('returns false for Err', () => {
@@ -580,11 +596,11 @@ describe('Result', () => {
 
   describe('isErrAnd', () => {
     it('returns true if Err and predicate true', () => {
-      expect(isErrAnd(err('error'), e => e.length > 3)).toBe(true);
+      expect(isErrAnd(err('error'), (e) => e.length > 3)).toBe(true);
     });
 
     it('returns false if Err and predicate false', () => {
-      expect(isErrAnd(err('no'), e => e.length > 3)).toBe(false);
+      expect(isErrAnd(err('no'), (e) => e.length > 3)).toBe(false);
     });
 
     it('returns false for Ok', () => {
@@ -598,12 +614,11 @@ describe('Result', () => {
         () => {
           throw new Error('boom');
         },
-        error => (error as Error).message,
+        (error) => (error as Error).message,
       );
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('boom');
     });
-
   });
 
   describe('wrap', () => {
@@ -643,7 +658,7 @@ describe('Result', () => {
     });
 
     it('throws Err error for failed Result', () => {
-      const fn = (x: number) => x > 0 ? ok(x) : err('negative');
+      const fn = (x: number) => (x > 0 ? ok(x) : err('negative'));
       const throwing = toThrowable(fn);
       expect(() => throwing(-1)).toThrow('negative');
     });
@@ -715,22 +730,14 @@ describe('Result', () => {
     });
 
     it('partitionAsync separates async results', async () => {
-      const promises = [
-        Promise.resolve(ok(1)),
-        Promise.resolve(err('a')),
-        Promise.resolve(ok(2)),
-      ];
+      const promises = [Promise.resolve(ok(1)), Promise.resolve(err('a')), Promise.resolve(ok(2))];
       const [oks, errs] = await partitionAsync(promises);
       expect(oks).toEqual([1, 2]);
       expect(errs).toEqual(['a']);
     });
 
     it('partitionAsync handles rejected promises as errors', async () => {
-      const promises = [
-        Promise.resolve(ok(1)),
-        Promise.reject(new Error('rejected')),
-        Promise.resolve(ok(2)),
-      ];
+      const promises = [Promise.resolve(ok(1)), Promise.reject(new Error('rejected')), Promise.resolve(ok(2))];
       const [oks, errs] = await partitionAsync(promises);
       expect(oks).toEqual([1, 2]);
       expect(errs).toHaveLength(1);
@@ -779,8 +786,10 @@ describe('Result', () => {
 
     it('uses onError mapper for sync throw', () => {
       const result = tryCatchMaybePromise(
-        () => { throw new Error('fail'); },
-        (e) => `mapped: ${(e as Error).message}`
+        () => {
+          throw new Error('fail');
+        },
+        (e) => `mapped: ${(e as Error).message}`,
       );
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('mapped: fail');
@@ -789,7 +798,7 @@ describe('Result', () => {
     it('uses onError mapper for async rejection', async () => {
       const result = await tryCatchMaybePromise(
         () => Promise.reject(new Error('fail')),
-        (e) => `mapped: ${(e as Error).message}`
+        (e) => `mapped: ${(e as Error).message}`,
       );
       expect(isErr(result)).toBe(true);
       expect((result as any).error).toBe('mapped: fail');
@@ -818,10 +827,7 @@ describe('Result', () => {
     });
 
     it('handles all async values', async () => {
-      const result = await settleMaybePromise([
-        Promise.resolve(1),
-        Promise.resolve(2)
-      ]);
+      const result = await settleMaybePromise([Promise.resolve(1), Promise.resolve(2)]);
       expect(result).toEqual([1, 2]);
     });
 
@@ -846,28 +852,20 @@ describe('Result', () => {
     });
 
     it('preserves input order with interleaved sync/async', async () => {
-      const result = await partitionMaybePromise([
-        Promise.resolve(ok(1)),
-        ok(2),
-        Promise.resolve(err('a')),
-        err('b'),
+      const result = await partitionMaybePromise([Promise.resolve(ok(1)), ok(2), Promise.resolve(err('a')), err('b')]);
+      expect(result).toEqual([
+        [1, 2],
+        ['a', 'b'],
       ]);
-      expect(result).toEqual([[1, 2], ['a', 'b']]);
     });
 
     it('handles all async values', async () => {
-      const result = await partitionMaybePromise([
-        Promise.resolve(ok(1)),
-        Promise.resolve(err('a'))
-      ]);
+      const result = await partitionMaybePromise([Promise.resolve(ok(1)), Promise.resolve(err('a'))]);
       expect(result).toEqual([[1], ['a']]);
     });
 
     it('handles rejected promises as errors', async () => {
-      const result = await partitionMaybePromise([
-        ok(1),
-        Promise.reject(new Error('rejected'))
-      ]);
+      const result = await partitionMaybePromise([ok(1), Promise.reject(new Error('rejected'))]);
       expect(result[0]).toEqual([1]);
       expect(result[1]).toHaveLength(1);
       expect((result[1][0] as Error).message).toBe('rejected');
@@ -938,7 +936,7 @@ describe('Result', () => {
     });
 
     it('propagates Err through chain', () => {
-      const parse = (s: string) => s === 'bad' ? err('parse error') : ok(Number(s));
+      const parse = (s: string) => (s === 'bad' ? err('parse error') : ok(Number(s)));
       const result = safeTry(() => {
         const a = unwrap(parse('10'));
         const b = unwrap(parse('bad'));
@@ -995,10 +993,7 @@ describe('Result', () => {
     });
 
     it('uses onError mapper for rejected promise', async () => {
-      const result = await fromPromise(
-        Promise.reject(new Error('boom')),
-        (e) => `mapped: ${(e as Error).message}`,
-      );
+      const result = await fromPromise(Promise.reject(new Error('boom')), (e) => `mapped: ${(e as Error).message}`);
       expect(isErr(result)).toBe(true);
       expect((result as { error: string }).error).toBe('mapped: boom');
     });
@@ -1016,53 +1011,9 @@ describe('Result', () => {
     });
   });
 
-  describe('fromSchema', () => {
-    const validSchema: StandardSchema<string> = {
-      '~standard': {
-        validate: (value) => typeof value === 'string'
-          ? { value }
-          : { issues: [{ message: 'Expected string' }] },
-      },
-    };
-
-    const asyncSchema: StandardSchema<number> = {
-      '~standard': {
-        validate: (value) => Promise.resolve(
-          typeof value === 'number'
-            ? { value }
-            : { issues: [{ message: 'Expected number' }] },
-        ),
-      },
-    };
-
-    it('returns Ok for valid sync schema', () => {
-      const result = fromSchema(validSchema, 'hello');
-      expect(isOk(result)).toBe(true);
-      expect(result).toBe('hello');
-    });
-
-    it('returns Err with issues for invalid sync schema', () => {
-      const result = fromSchema(validSchema, 42);
-      expect(isErr(result)).toBe(true);
-      expect((result as any).error).toEqual([{ message: 'Expected string' }]);
-    });
-
-    it('returns Ok for valid async schema', async () => {
-      const result = await fromSchema(asyncSchema, 42);
-      expect(isOk(result)).toBe(true);
-      expect(result).toBe(42);
-    });
-
-    it('returns Err for invalid async schema', async () => {
-      const result = await fromSchema(asyncSchema, 'hello');
-      expect(isErr(result)).toBe(true);
-      expect((result as any).error).toEqual([{ message: 'Expected number' }]);
-    });
-  });
-
   describe('gen', () => {
     it('returns Ok for successful execution', () => {
-      const result = gen(function*($) {
+      const result = gen(function* ($) {
         const a = yield* $(ok(10));
         const b = yield* $(ok(5));
         return a + b;
@@ -1072,7 +1023,7 @@ describe('Result', () => {
     });
 
     it('short-circuits on first Err', () => {
-      const result = gen(function*($) {
+      const result = gen(function* ($) {
         const a = yield* $(ok(10));
         const b = yield* $(err('fail') as Result<number, string>);
         const c = yield* $(ok(5));
@@ -1083,8 +1034,8 @@ describe('Result', () => {
     });
 
     it('propagates Err through chain', () => {
-      const parse = (s: string) => s === 'bad' ? err('parse error') : ok(Number(s));
-      const result = gen(function*($) {
+      const parse = (s: string) => (s === 'bad' ? err('parse error') : ok(Number(s)));
+      const result = gen(function* ($) {
         const a = yield* $(parse('10'));
         const b = yield* $(parse('bad'));
         const c = yield* $(parse('5'));
@@ -1095,7 +1046,7 @@ describe('Result', () => {
     });
 
     it('returns Ok for empty generator', () => {
-      const result = gen(function*() {
+      const result = gen(function* () {
         return 42;
       });
       expect(isOk(result)).toBe(true);
@@ -1104,7 +1055,7 @@ describe('Result', () => {
 
     it('runs try/finally cleanup when short-circuiting on Err', () => {
       let cleanedUp = false;
-      const result = gen(function*($) {
+      const result = gen(function* ($) {
         try {
           const a = yield* $(ok(10));
           const b = yield* $(err('fail') as Result<number, string>);
@@ -1121,7 +1072,7 @@ describe('Result', () => {
 
   describe('genAsync', () => {
     it('returns Ok for successful async execution', async () => {
-      const result = await genAsync(async function*($) {
+      const result = await genAsync(async function* ($) {
         const a = yield* $(ok(10));
         const b = yield* $(await fromPromise(Promise.resolve(5)));
         return a + b;
@@ -1131,7 +1082,7 @@ describe('Result', () => {
     });
 
     it('short-circuits on first Err', async () => {
-      const result = await genAsync(async function*($) {
+      const result = await genAsync(async function* ($) {
         const a = yield* $(ok(10));
         const b = yield* $(err('async fail') as Result<number, string>);
         return a + b;
@@ -1141,7 +1092,7 @@ describe('Result', () => {
     });
 
     it('handles rejected promises via fromPromise', async () => {
-      const result = await genAsync(async function*($) {
+      const result = await genAsync(async function* ($) {
         const a = yield* $(await fromPromise(Promise.resolve(10)));
         const b = yield* $(await fromPromise(Promise.reject('boom')));
         return a + b;
@@ -1152,7 +1103,7 @@ describe('Result', () => {
 
     it('runs try/finally cleanup when short-circuiting on Err', async () => {
       let cleanedUp = false;
-      const result = await genAsync(async function*($) {
+      const result = await genAsync(async function* ($) {
         try {
           const a = yield* $(ok(10));
           const b = yield* $(err('async fail') as Result<number, string>);
@@ -1166,6 +1117,4 @@ describe('Result', () => {
       expect(cleanedUp).toBe(true);
     });
   });
-
 });
-
