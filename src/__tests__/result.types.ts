@@ -47,9 +47,11 @@ assert<Equals<typeof errValue2, Err<number>>>;
 const result: Result<number, string> = Math.random() > 0 ? ok(42) : err("error");
 if (isOk(result)) {
   assert<Equals<typeof result, Ok<number>>>;
+  assert<Not<Equals<typeof result, Err<string>>>>;
   const value: number = result;
 } else {
   assert<Equals<typeof result, Err<string>>>;
+  assert<Not<Equals<typeof result, Ok<number>>>>;
   const error: string = result.error;
 }
 
