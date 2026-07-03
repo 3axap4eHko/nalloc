@@ -152,20 +152,20 @@
     }
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
-    "@typescript-eslint/parser": "^8.61.1",
-    "@typescript-eslint/rule-tester": "^8.61.1",
-    "@typescript-eslint/utils": "^8.61.1",
+    "@types/node": "^25.9.4",
+    "@typescript-eslint/parser": "^8.62.1",
+    "@typescript-eslint/rule-tester": "^8.62.1",
+    "@typescript-eslint/utils": "^8.62.1",
     "@vitest/coverage-v8": "^4.1.9",
-    "inop": "^0.9.0",
+    "inop": "^0.9.4",
     "overtake": "^2.1.1",
-    "oxc-parser": "^0.136.0",
-    "oxlint": "^1.70.0",
-    "prettier": "^3.8.4",
+    "oxc-parser": "^0.138.0",
+    "oxlint": "^1.72.0",
+    "prettier": "^3.9.4",
     "tsafe": "^1.8.12",
     "tslib": "^2.8.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   },
-  "packageManager": "pnpm@11.5.0+sha512.dbfcc4f81cf48597afd4bc391ffdf12c11f1a9fb83a395bfa6b0a2d9cc2fd8ffebafdb1ccbd529632153f793904c2615b7f09fe1a345473fd1c35845172a8eb1"
+  "packageManager": "pnpm@11.9.0"
 }
