@@ -153,19 +153,19 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.4",
-    "@typescript-eslint/parser": "^8.62.1",
-    "@typescript-eslint/rule-tester": "^8.62.1",
-    "@typescript-eslint/utils": "^8.62.1",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@typescript-eslint/parser": "^8.63.0",
+    "@typescript-eslint/rule-tester": "^8.63.0",
+    "@typescript-eslint/utils": "^8.63.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "inop": "^0.9.4",
     "overtake": "^2.1.1",
-    "oxc-parser": "^0.138.0",
-    "oxlint": "^1.72.0",
+    "oxc-parser": "^0.139.0",
+    "oxlint": "^1.73.0",
     "prettier": "^3.9.4",
     "tsafe": "^1.8.12",
     "tslib": "^2.8.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "packageManager": "pnpm@11.10.0"
 }
