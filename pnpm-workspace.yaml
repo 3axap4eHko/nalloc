@@ -65,6 +65,7 @@ minimumReleaseAgeExclude:
   - oxc-parser@0.139.0
   - oxlint@1.73.0
   - vitest@4.1.10
+  - '@types/node@25.9.5'
 
 onlyBuiltDependencies:
   - '@swc/core'
