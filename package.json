@@ -153,9 +153,9 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.5",
-    "@typescript-eslint/parser": "^8.68.0",
-    "@typescript-eslint/rule-tester": "^8.68.0",
-    "@typescript-eslint/utils": "^8.68.0",
+    "@typescript-eslint/parser": "^8.69.0",
+    "@typescript-eslint/rule-tester": "^8.69.0",
+    "@typescript-eslint/utils": "^8.69.0",
     "@vitest/coverage-v8": "^4.1.11",
     "inop": "^0.9.4",
     "overtake": "^2.1.1",
