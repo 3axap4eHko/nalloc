@@ -159,7 +159,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "inop": "^0.9.4",
     "overtake": "^2.1.1",
-    "oxc-parser": "^0.151.0",
+    "oxc-parser": "^0.152.0",
     "oxlint": "^1.86.0",
     "prettier": "^3.9.9",
     "tsafe": "^1.8.12",
