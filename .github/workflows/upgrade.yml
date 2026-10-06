@@ -8,16 +8,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Run CI/CD Pipeline
-        uses: zource-dev/action@v1
+        uses: zource-dev/action@534b3ad1eb0dec5b64c4bd20be9febf0336594b6
         with:
-          node_version: '24.x'
+          node_version: '24.21.0'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           autoupdate: minor
           username: Ivan Zakharchanka
           email: 3axap4eHko@github.com
-          npm_token: ${{ secrets.NPM_TOKEN }}
           codecov_token: ${{ secrets.CODECOV_TOKEN }}
           test: |
             pnpm check
@@ -28,13 +30,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup Node.js 🛠️
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
           registry-url: 'https://registry.npmjs.org/'
 
       - name: Install pnpm 📦
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           run_install: false
           version: 10
